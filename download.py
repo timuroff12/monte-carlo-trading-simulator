@@ -5,7 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Professional Monte Carlo Sim", layout="wide")
 
-# --- ОБНОВЛЕННЫЙ CSS БЕЗ ЛИШНИХ ОКОШЕК ---
+# --- CSS ДЛЯ ОФОРМЛЕНИЯ ВЕРХНЕГО ОКОШКА С МЕТРИКАМИ ---
 st.markdown("""
     <style>
     [data-baseweb="tab-highlight"] { display: none !important; }
@@ -24,26 +24,26 @@ st.markdown("""
     div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; }
     div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
     div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
-    
-    /* Сплошная заливка для всей нижней части */
-    .full-scenario-wrapper {
-        padding: 40px;
-        border-radius: 20px;
-        margin-top: -10px;
+
+    /* СТИЛЬ ВЕРХНЕГО ОКОШКА С МЕТРИКАМИ */
+    .summary-box {
+        padding: 20px 40px;
+        border-radius: 50px; /* Скругление как на скриншоте */
+        margin-bottom: 30px;
+        text-align: center;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    .bg-median { background-color: rgba(59, 130, 246, 0.08); }
-    .bg-worst { background-color: rgba(239, 68, 68, 0.08); }
-    .bg-best { background-color: rgba(16, 185, 129, 0.08); }
+    .box-median { background-color: rgba(59, 130, 246, 0.15); }
+    .box-worst { background-color: rgba(239, 68, 68, 0.15); }
+    .box-best { background-color: rgba(16, 185, 129, 0.15); }
 
-    /* Удаляем стандартные отступы и рамки контейнеров streamlit внутри нашего фона */
-    [data-testid="stVerticalBlock"] > div > div > div[data-testid="stVerticalBlock"] {
-        border: none !important;
-        background: transparent !important;
-        box-shadow: none !important;
+    /* Контейнер для календаря снизу */
+    .calendar-section {
+        padding: 20px;
+        border-radius: 20px;
     }
-
+    
     .stTable { 
         background-color: rgba(255, 255, 255, 0.05) !important; 
         border-radius: 12px !important;
@@ -53,7 +53,7 @@ st.markdown("""
 
 st.title("Симуляция Монте-Карло для трейдеров")
 
-# --- ФУНКЦИИ (MDD и Конкурентные сделки) ---
+# --- ФУНКЦИИ ---
 def calculate_single_mdd(history):
     if not history or len(history) < 2: return 0.0
     h = np.array(history); peaks = np.maximum.accumulate(h)
@@ -70,7 +70,7 @@ def get_consecutive(results):
         max_wins = max(max_wins, cur_wins); max_losses = max(max_losses, cur_losses)
     return max_wins, max_losses
 
-# --- SIDEBAR (Настройки из твоих скриншотов) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("Настройки")
     mode = st.radio("Режим:", ["Проценты (%)", "Доллары ($)"])
@@ -84,7 +84,7 @@ with st.sidebar:
     num_months = st.number_input("Месяцев", value=24)
     variability = st.slider("Вариативность RR (%)", 0, 100, 20) #
 
-# --- ЛОГИКА ---
+# --- ЛОГИКА СИМУЛЯЦИИ ---
 def run_simulation():
     all_runs = []
     total_trades = int(num_months * trades_per_month)
@@ -120,18 +120,15 @@ idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
 # --- ГРАФИК ---
 fig = go.Figure()
-for i, r in enumerate(results[:100]):
-    if i not in [idx_best, idx_worst, idx_median]:
-        fig.add_trace(go.Scatter(y=r["history"], mode='lines', line=dict(width=1, color="gray"), opacity=0.1, showlegend=False))
 fig.add_trace(go.Scatter(y=results[idx_median]["history"], name="MOST POSSIBLE", line=dict(color="#3B82F6", width=2)))
 fig.add_trace(go.Scatter(y=results[idx_worst]["history"], name="WORST CASE", line=dict(color="#EF4444", width=2)))
 fig.add_trace(go.Scatter(y=results[idx_best]["history"], name="BEST CASE", line=dict(color="#10B981", width=2)))
-fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0, r=0, t=30, b=0))
+fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0, r=0, t=20, b=0))
 st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# --- ДЕТАЛЬНЫЙ АНАЛИЗ БЕЗ ЛИШНИХ ПРЯМОУГОЛЬНИКОВ ---
+# --- ДЕТАЛЬНЫЙ АНАЛИЗ С ОКОШКОМ МЕТРИК СВЕРХУ ---
 st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
 
@@ -142,11 +139,9 @@ def style_table(df):
         return ''
     return df.style.applymap(color_vals)
 
-def render_scenario(data, bg_class):
-    # Начало общего цветного фона
-    st.markdown(f'<div class="full-scenario-wrapper {bg_class}">', unsafe_allow_html=True)
-    
-    # Метрики напрямую в колонках (без лишних st.container)
+def render_scenario(data, box_color_class):
+    # 1. ВЕРХНЕЕ ОКОШКО С МЕТРИКАМИ
+    st.markdown(f'<div class="summary-box {box_color_class}">', unsafe_allow_html=True)
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric("Initial balance", f"${start_balance:,.0f}")
     c2.metric("Result balance", f"${data['final']:,.0f}")
@@ -155,14 +150,14 @@ def render_scenario(data, bg_class):
     c5.metric("Max cons. loss", data['max_losses'])
     c6.metric("Max cons. win", data['max_wins'])
     c7.metric("Win trades %", f"{data['win_pct']:.1f}%")
-
-    st.write("<br>", unsafe_allow_html=True)
-    st.write("#### Результаты по месяцам (Календарь)") #
+    st.markdown('</div>', unsafe_allow_html=True)
     
+    # 2. НИЖНЯЯ СЕКЦИЯ С КАЛЕНДАРЕМ
+    st.write("#### Результаты по месяцам (Календарь)")
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
     cols_years = st.columns(min(num_years, 3))
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] #
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     
     for y in range(num_years):
         with cols_years[y % 3]:
@@ -170,18 +165,12 @@ def render_scenario(data, bg_class):
             rows = []
             for i, val in enumerate(year_data):
                 pct = (val / start_balance) * 100
-                rows.append({
-                    "Month": months[i], #
-                    "Results %": f"{pct:+.1f}%", 
-                    "Results $": f"${val:+,.0f}".replace("$-", "-$")
-                })
+                rows.append({"Month": months[i], "Results %": f"{pct:+.1f}%", "Results $": f"${val:+,.0f}".replace("$-", "-$")})
             df_year = pd.DataFrame(rows)
-            df_year.index = df_year.index + 1 # Нумерация с 1
+            df_year.index = df_year.index + 1
             st.write(f"**Year {2026 + y}**")
             st.table(style_table(df_year))
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
-with tab_med: render_scenario(results[idx_median], "bg-median")
-with tab_worst: render_scenario(results[idx_worst], "bg-worst")
-with tab_best: render_scenario(results[idx_best], "bg-best")
+with tab_med: render_scenario(results[idx_median], "box-median")
+with tab_worst: render_scenario(results[idx_worst], "box-worst")
+with tab_best: render_scenario(results[idx_best], "box-best")
