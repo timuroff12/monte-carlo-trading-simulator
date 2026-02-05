@@ -60,7 +60,7 @@ def calculate_single_mdd(history):
     h = np.array(history)
     peaks = np.maximum.accumulate(h)
     drawdowns = (peaks - h) / (peaks + 1e-9)
-    return float(np.max(drawdowns) * 100) #
+    return float(np.max(drawdowns) * 100)
 
 def get_consecutive(results):
     max_wins, max_losses = 0, 0
@@ -82,17 +82,17 @@ with st.sidebar:
     start_balance = st.number_input("Начальный баланс", value=10000, step=1000, format="%d")
     
     col_win, col_be = st.columns(2)
-    win_rate = col_win.number_input("Winning trades %", value=55, format="%d") #
+    win_rate = col_win.number_input("Winning trades %", value=55, format="%d") 
     be_rate = col_be.number_input("Break even trades %", value=5, format="%d")
     
     col_r, col_p = st.columns(2)
-    risk_val = col_r.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100, format="%d") #
+    risk_val = col_r.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100, format="%d") 
     reward_val = col_p.number_input(f"Прибыль ({mode[-2]})", value=2 if "%" in mode else 200, format="%d")
     
     num_sims = st.number_input("Количество симуляций", value=50, step=1, format="%d")
     trades_per_month = st.slider("Сделок в месяц", 1, 50, 20)
     num_months = st.number_input("Месяцев", value=24, step=1, format="%d")
-    variability = st.slider("Вариативность RR (%)", 0, 100, 20) #
+    variability = st.slider("Вариативность RR (%)", 0, 100, 20) 
 
 # --- ЛОГИКА ---
 def run_simulation():
@@ -151,10 +151,13 @@ st.divider()
 st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
 
+# --- ОБНОВЛЕННАЯ СТИЛИЗАЦИЯ (с окрашиванием $) ---
 def style_table(df):
     def color_vals(val):
-        if isinstance(val, str) and '-' in val: return 'color: #EF4444'
-        if isinstance(val, str) and '+' in val and val != '+0.0%': return 'color: #10B981'
+        if isinstance(val, str) and '-' in val: 
+            return 'color: #EF4444; font-weight: bold;'
+        if isinstance(val, str) and '+' in val and val != '+0.0%': 
+            return 'color: #10B981; font-weight: bold;'
         return ''
     return df.style.applymap(color_vals)
 
@@ -174,19 +177,29 @@ def render_scenario(data):
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
     cols_years = st.columns(min(num_years, 3))
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     
     for y in range(num_years):
         with cols_years[y % 3]:
             year_data = diffs[y*12 : (y+1)*12]
             rows = []
             for i, val in enumerate(year_data):
+                # Порядковый номер месяца начинается с 1
+                month_idx = i + 1 
                 pct = (val / start_balance) * 100
-                rows.append({"Month": months[i], "Results %": f"{pct:+.1f}%", "Results $": f"${val:,.0f}"})
+                
+                # Формируем строки с явными знаками + для прибыли
+                str_pct = f"{pct:+.1f}%"
+                str_val = f"${val:+,.0f}".replace("$-", "-$") 
+                
+                rows.append({
+                    "№": month_idx, 
+                    "Results %": str_pct, 
+                    "Results $": str_val
+                })
+                
             st.write(f"**Year {2026 + y}**")
-            st.table(style_table(pd.DataFrame(rows))) #
+            st.table(style_table(pd.DataFrame(rows)))
 
 with tab_med: render_scenario(results[idx_median])
 with tab_worst: render_scenario(results[idx_worst])
 with tab_best: render_scenario(results[idx_best])
-
