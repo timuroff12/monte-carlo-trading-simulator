@@ -151,7 +151,6 @@ st.divider()
 st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
 
-# --- ОБНОВЛЕННАЯ СТИЛИЗАЦИЯ (с окрашиванием $) ---
 def style_table(df):
     def color_vals(val):
         if isinstance(val, str) and '-' in val: 
@@ -162,7 +161,6 @@ def style_table(df):
     return df.style.applymap(color_vals)
 
 def render_scenario(data):
-    # Метрики сразу после вкладок
     with st.container(border=True):
         c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
         c1.metric("Initial balance", f"${start_balance:,.0f}")
@@ -178,27 +176,30 @@ def render_scenario(data):
     num_years = int(np.ceil(len(diffs) / 12))
     cols_years = st.columns(min(num_years, 3))
     
+    # Список месяцев возвращен
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
     for y in range(num_years):
         with cols_years[y % 3]:
             year_data = diffs[y*12 : (y+1)*12]
             rows = []
             for i, val in enumerate(year_data):
-                # Порядковый номер месяца начинается с 1
-                month_idx = i + 1 
                 pct = (val / start_balance) * 100
-                
-                # Формируем строки с явными знаками + для прибыли
                 str_pct = f"{pct:+.1f}%"
                 str_val = f"${val:+,.0f}".replace("$-", "-$") 
                 
                 rows.append({
-                    "№": month_idx, 
+                    "Month": months[i], # Вернул названия месяцев
                     "Results %": str_pct, 
                     "Results $": str_val
                 })
-                
+            
+            df_year = pd.DataFrame(rows)
+            # Индексация начинается с 1
+            df_year.index = df_year.index + 1 
+            
             st.write(f"**Year {2026 + y}**")
-            st.table(style_table(pd.DataFrame(rows)))
+            st.table(style_table(df_year))
 
 with tab_med: render_scenario(results[idx_median])
 with tab_worst: render_scenario(results[idx_worst])
