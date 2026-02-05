@@ -5,7 +5,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="Monte Carlo Trader Sim Pro", layout="wide")
 
-st.title("📊 Симуляция Монте-Карло для трейдеров")
+st.title("Симуляция Монте-Карло для трейдеров")
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -94,3 +94,4 @@ fig_hist = px.histogram(
     template="plotly_dark"
 )
 st.plotly_chart(fig_hist, use_container_width=True)
+
