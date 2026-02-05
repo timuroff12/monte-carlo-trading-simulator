@@ -52,7 +52,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Симуляция Монте-Карло для трейдеров")
+st.title("Симуляция Монте-Карло для трейдеров by timuroff")
 
 # --- ФУНКЦИИ ---
 def calculate_single_mdd(history):
@@ -189,3 +189,4 @@ def render_scenario(data):
 with tab_med: render_scenario(results[idx_median])
 with tab_worst: render_scenario(results[idx_worst])
 with tab_best: render_scenario(results[idx_best])
+
