@@ -3,165 +3,204 @@ import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
 
-st.set_page_config(page_title="Professional Monte Carlo", layout="wide")
+st.set_page_config(page_title="Professional Monte Carlo Sim", layout="wide")
 
-# --- CSS: МАКСИМАЛЬНАЯ ЧИСТОТА И КОМПАКТНОСТЬ ---
+# --- CSS ДЛЯ УДАЛЕНИЯ ЛИНИИ И СТИЛИЗАЦИИ ВКЛАДОК ---
 st.markdown("""
     <style>
-    [data-baseweb="tab-highlight"] { display: none !important; }
-    .stTabs [data-baseweb="tab-list"] {
-        display: flex; justify-content: center; gap: 8px;
-        padding-bottom: 10px; border: none !important;
+    /* 1. Убираем стандартную красную/оранжевую линию под вкладками */
+    [data-baseweb="tab-highlight"] {
+        display: none !important;
     }
-    .stTabs [data-baseweb="tab"] {
-        height: 40px; width: 180px; border-radius: 4px;
-        font-weight: bold; font-size: 13px; color: white !important;
+    
+    /* 2. Центрируем и стилизуем вкладки */
+    .stTabs [data-baseweb="tab-list"] {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        padding-bottom: 20px;
         border: none !important;
     }
-    /* Цвета кнопок как на референсе */
-    div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
     
-    /* Компактные метрики */
-    [data-testid="stMetricValue"] { font-size: 1.4rem !important; font-weight: 700; }
-    [data-testid="stMetricLabel"] { font-size: 0.75rem !important; opacity: 0.8; }
+    .stTabs [data-baseweb="tab"] {
+        height: 60px;
+        width: 250px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 18px;
+        color: white !important;
+        border: none !important;
+        transition: all 0.2s ease;
+    }
+
+    /* 3. Цвета кнопок-вкладок */
+    div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; } /* Blue */
+    div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; } /* Red */
+    div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; } /* Green */
     
-    /* Убираем лишние отступы */
-    .stTable td, .stTable th { padding: 3px !important; font-size: 12px !important; }
+    /* 4. Визуальный отклик при выборе */
+    .stTabs [aria-selected="true"] {
+        filter: brightness(1.2);
+        transform: scale(1.02);
+        box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
+    }
+    
+    /* Убираем серую разделительную линию под списком вкладок */
+    .stTabs [data-baseweb="tab-list"] {
+        border-bottom: none !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
+st.title("Симуляция Монте-Карло для трейдеров")
+
 # --- ФУНКЦИИ ---
 def calculate_single_mdd(history):
+    if not history or len(history) < 2: return 0.0
     h = np.array(history)
     peaks = np.maximum.accumulate(h)
     drawdowns = (peaks - h) / (peaks + 1e-9)
     return float(np.max(drawdowns) * 100)
 
 def get_consecutive(results):
-    max_w, max_l = 0, 0
-    cw, cl = 0, 0
+    max_wins, max_losses = 0, 0
+    cur_wins, cur_losses = 0, 0
     for r in results:
-        if r == 1: cw += 1; cl = 0
-        elif r == -1: cl += 1; cw = 0
-        else: cw, cl = 0, 0
-        max_w = max(max_w, cw); max_l = max(max_l, cl)
-    return max_w, max_l
+        if r == 1:
+            cur_wins += 1; cur_losses = 0
+        elif r == -1:
+            cur_losses += 1; cur_wins = 0
+        else:
+            cur_wins, cur_losses = 0, 0
+        max_wins = max(max_wins, cur_wins); max_losses = max(max_losses, cur_losses)
+    return max_wins, max_losses
 
-# --- SIDEBAR (УЛЬТРА-КОМПАКТ) ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.caption("PARAM SETTINGS")
-    mode = st.segmented_control("Mode", ["%", "$"], default="%")
-    start_balance = st.number_input("Balance", value=10000)
+    st.header("Настройки")
+    mode = st.radio("Режим:", ["Проценты (%)", "Доллары ($)"])
+    start_balance = st.number_input("Начальный баланс", value=10000, step=1000, format="%d")
     
-    col1, col2 = st.columns(2)
-    win_rate = col1.number_input("Win%", value=55)
-    be_rate = col2.number_input("BE%", value=5)
+    col_win, col_be = st.columns(2)
+    win_rate = col_win.number_input("Winning trades %", value=55, format="%d") 
+    be_rate = col_be.number_input("Break even trades %", value=5, format="%d")
     
-    col3, col4 = st.columns(2)
-    risk = col3.number_input("Risk", value=1.0 if mode=="%" else 100.0)
-    reward = col4.number_input("Reward", value=2.0 if mode=="%" else 200.0)
+    col_r, col_p = st.columns(2)
+    risk_val = col_r.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100, format="%d") 
+    reward_val = col_p.number_input(f"Прибыль ({mode[-2]})", value=2 if "%" in mode else 200, format="%d")
     
-    num_sims = st.select_slider("Simulations", options=[10, 20, 50, 100, 200], value=50)
-    
-    col5, col6 = st.columns(2)
-    t_pm = col5.number_input("Tr/Mo", value=20)
-    months = col6.number_input("Months", value=24)
-    var = st.slider("Variability %", 0, 100, 20)
+    num_sims = st.number_input("Количество симуляций", value=50, step=1, format="%d")
+    trades_per_month = st.slider("Сделок в месяц", 1, 50, 20)
+    num_months = st.number_input("Месяцев", value=24, step=1, format="%d")
+    variability = st.slider("Вариативность RR (%)", 0, 100, 20) 
 
 # --- ЛОГИКА ---
 def run_simulation():
-    runs = []
-    total_t = int(months * t_pm)
-    for _ in range(num_sims):
-        bal = float(start_balance)
-        hist, res, diffs = [bal], [], []
-        m_start = bal
-        m_diffs = []
-        for t in range(1, total_t + 1):
-            if bal <= 0: 
-                bal = 0.0; hist.append(0.0); res.append(-1); diffs.append(0); continue
+    all_runs = []
+    total_trades = int(num_months * trades_per_month)
+    for _ in range(int(num_sims)):
+        balance = float(start_balance)
+        history = [balance]; trade_results = []; monthly_diffs = []
+        current_month_start_bal = balance
+        for t in range(1, total_trades + 1):
+            if balance <= 0:
+                balance = 0.0; history.append(balance); trade_results.append(-1); continue
             rn = np.random.random() * 100
-            vf = np.random.normal(1, var / 100)
+            v_factor = np.random.normal(1, variability / 100)
             if rn < win_rate:
-                ch = (bal * (reward * vf / 100)) if mode=="%" else (reward * vf)
-                bal += max(0.0, float(ch)); res.append(1); diffs.append(ch)
+                change = (balance * (reward_val * v_factor / 100)) if "%" in mode else (reward_val * v_factor)
+                balance += max(0.0, float(change)); trade_results.append(1)
             elif rn < (win_rate + be_rate):
-                res.append(0); diffs.append(0)
+                trade_results.append(0)
             else:
-                ch = (bal * (risk * vf / 100)) if mode=="%" else (risk * vf)
-                bal -= max(0.0, float(ch)); res.append(-1); diffs.append(-ch)
-            hist.append(bal)
-            if t % t_pm == 0:
-                m_diffs.append(bal - m_start); m_start = bal
-        
-        mdd = calculate_single_mdd(hist)
-        w_vals = [v for v in diffs if v > 0]
-        l_vals = [abs(v) for v in diffs if v < 0]
-        mw, ml = get_consecutive(res)
-        runs.append({
-            "history": hist, "final": bal, "mdd": mdd, "max_wins": mw, "max_losses": ml,
-            "pf": sum(w_vals)/sum(l_vals) if sum(l_vals)>0 else 0,
-            "rf": (bal - start_balance)/(start_balance * (mdd/100)) if mdd > 0 else 0,
-            "exp": sum(diffs)/len(res) if res else 0,
-            "wp": (res.count(1)/len(res))*100, "m_diffs": m_diffs
-        })
-    return runs
+                change = (balance * (risk_val * v_factor / 100)) if "%" in mode else (risk_val * v_factor)
+                balance -= max(0.0, float(change)); trade_results.append(-1)
+            history.append(balance)
+            if t % trades_per_month == 0:
+                monthly_diffs.append(balance - current_month_start_bal)
+                current_month_start_bal = balance
+        max_w, max_l = get_consecutive(trade_results)
+        all_runs.append({"history": history, "final": balance, "mdd": calculate_single_mdd(history),
+                         "max_wins": max_w, "max_losses": max_l, 
+                         "win_pct": (trade_results.count(1)/len(trade_results))*100, "monthly_diffs": monthly_diffs})
+    return all_runs
 
 results = run_simulation()
 finals = [r["final"] for r in results]
-idx_b, idx_w = int(np.argmax(finals)), int(np.argmin(finals))
-idx_m = int((np.abs(np.array(finals) - np.median(finals))).argmin())
+idx_best, idx_worst = int(np.argmax(finals)), int(np.argmin(finals))
+idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
-# --- ГРАФИК: ОБЛАКО СИМУЛЯЦИЙ ---
+COLOR_BEST, COLOR_WORST, COLOR_MEDIAN = "#10B981", "#EF4444", "#3B82F6"
+
+# --- ГРАФИК ---
 fig = go.Figure()
-# Рисуем все линии серым цветом
-for r in results:
-    fig.add_trace(go.Scatter(y=r["history"], mode='lines', 
-                             line=dict(color='rgba(128, 128, 128, 0.15)', width=1), 
-                             showlegend=False, hoverinfo='skip'))
+for i, r in enumerate(results[:100]):
+    if i not in [idx_best, idx_worst, idx_median]:
+        fig.add_trace(go.Scatter(y=r["history"], mode='lines', line=dict(width=1, color="gray"), opacity=0.1, showlegend=False))
 
-# Накладываем основные сценарии
-fig.add_trace(go.Scatter(y=results[idx_m]["history"], name="MOST POSSIBLE", line=dict(color="#3B82F6", width=2.5)))
-fig.add_trace(go.Scatter(y=results[idx_w]["history"], name="WORST CASE", line=dict(color="#EF4444", width=2.5)))
-fig.add_trace(go.Scatter(y=results[idx_b]["history"], name="BEST CASE", line=dict(color="#10B981", width=2.5)))
+fig.add_trace(go.Scatter(y=results[idx_median]["history"], name="MOST POSSIBLE", line=dict(color=COLOR_MEDIAN, width=2)))
+fig.add_trace(go.Scatter(y=results[idx_worst]["history"], name="WORST CASE", line=dict(color=COLOR_WORST, width=2)))
+fig.add_trace(go.Scatter(y=results[idx_best]["history"], name="BEST CASE", line=dict(color=COLOR_BEST, width=2)))
 
-fig.update_layout(template="plotly_dark", height=400, margin=dict(l=10, r=10, t=10, b=10), 
-                  legend=dict(orientation="h", y=1.1, x=0.5, xanchor="center"))
+fig.update_layout(title="Динамика баланса", template="plotly_dark", height=450, legend=dict(orientation="h", x=0.5, xanchor="center", y=1.1))
 st.plotly_chart(fig, use_container_width=True)
 
-# --- АНАЛИЗ ---
-st.markdown("<h3 style='text-align: center;'>Детальный анализ сценариев</h3>", unsafe_allow_html=True)
-t_m, t_w, t_b = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
+st.divider()
 
-def show_data(d):
-    # Чистый блок без заливки
+# --- ДЕТАЛЬНЫЙ АНАЛИЗ ---
+st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
+tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
+
+def style_table(df):
+    def color_vals(val):
+        if isinstance(val, str) and '-' in val: 
+            return 'color: #EF4444; font-weight: bold;'
+        if isinstance(val, str) and '+' in val and val != '+0.0%': 
+            return 'color: #10B981; font-weight: bold;'
+        return ''
+    return df.style.applymap(color_vals)
+
+def render_scenario(data):
     with st.container(border=True):
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Final Balance", f"${d['final']:,.0f}")
-        c2.metric("Return", f"{((d['final']-start_balance)/start_balance)*100:+.1f}%")
-        c3.metric("Max Drawdown", f"-{d['mdd']:.1f}%")
-        c4.metric("Profit Factor", f"{d['pf']:.2f}")
-        c5.metric("Win Rate", f"{d['wp']:.1f}%")
-        
-        c6, c7, c8, c9, c10 = st.columns(5)
-        c6.metric("Recovery Factor", f"{d['rf']:.2f}")
-        c7.metric("Expectancy", f"${d['exp']:,.1f}" if mode=="$" else f"{d['exp']:,.1f}%")
-        c8.metric("Cons. Wins", d['max_wins'])
-        c9.metric("Cons. Losses", d['max_losses'])
-        c10.metric("Initial", f"${start_balance:,.0f}")
+        c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+        c1.metric("Initial balance", f"${start_balance:,.0f}")
+        c2.metric("Result balance", f"${data['final']:,.0f}")
+        c3.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
+        c4.metric("Max drawdown", f"-{data['mdd']:.1f}%")
+        c5.metric("Max cons. loss", data['max_losses'])
+        c6.metric("Max cons. win", data['max_wins'])
+        c7.metric("Win trades %", f"{data['win_pct']:.1f}%")
 
-    # Таблицы месяцев
-    ms = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    cols = st.columns(3)
-    for y in range(int(np.ceil(len(d['m_diffs'])/12))):
-        with cols[y % 3]:
-            y_d = d['m_diffs'][y*12 : (y+1)*12]
-            df = pd.DataFrame([{"Month": ms[i], "Res %": f"{(v/start_balance)*100:+.1f}%", "Res $": f"${v:+,.0f}"} for i, v in enumerate(y_d)])
-            st.caption(f"Year {2026+y}")
-            st.table(df)
+    st.write("#### Результаты по месяцам")
+    diffs = data['monthly_diffs']
+    num_years = int(np.ceil(len(diffs) / 12))
+    cols_years = st.columns(min(num_years, 3))
+    
+    # Список месяцев возвращен
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
+    for y in range(num_years):
+        with cols_years[y % 3]:
+            year_data = diffs[y*12 : (y+1)*12]
+            rows = []
+            for i, val in enumerate(year_data):
+                pct = (val / start_balance) * 100
+                str_pct = f"{pct:+.1f}%"
+                str_val = f"${val:+,.0f}".replace("$-", "-$") 
+                
+                rows.append({
+                    "Month": months[i], # Вернул названия месяцев
+                    "Results %": str_pct, 
+                    "Results $": str_val
+                })
+            
+            df_year = pd.DataFrame(rows)
+            # Индексация начинается с 1
+            df_year.index = df_year.index + 1 
+            
+            st.write(f"**Year {2026 + y}**")
+            st.table(style_table(df_year))
 
-with t_m: show_data(results[idx_m])
-with t_w: show_data(results[idx_w])
-with t_b: show_data(results[idx_b])
+with tab_med: render_scenario(results[idx_median])
+with tab_worst: render_scenario(results[idx_worst])
+with tab_best: render_scenario(results[idx_best])
