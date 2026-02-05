@@ -89,7 +89,7 @@ with st.sidebar:
     risk_val = col_r.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100, format="%d") 
     reward_val = col_p.number_input(f"Прибыль ({mode[-2]})", value=2 if "%" in mode else 200, format="%d")
     
-    num_sims = st.number_input("Количество симуляций", value=50, step=1, format="%d")
+    num_sims = st.number_input("Количество симуляций", value=100, step=1, format="%d")
     trades_per_month = st.slider("Сделок в месяц", 1, 50, 20)
     num_months = st.number_input("Месяцев", value=24, step=1, format="%d")
     variability = st.slider("Вариативность RR (%)", 0, 100, 20) 
@@ -204,4 +204,5 @@ def render_scenario(data):
 with tab_med: render_scenario(results[idx_median])
 with tab_worst: render_scenario(results[idx_worst])
 with tab_best: render_scenario(results[idx_best])
+
 
