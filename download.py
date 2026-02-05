@@ -5,7 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Professional Monte Carlo Sim", layout="wide")
 
-# --- CSS ДЛЯ ОФОРМЛЕНИЯ ВЕРХНЕГО ОКОШКА С МЕТРИКАМИ ---
+# --- CSS ДЛЯ СТИЛЬНОЙ ПЛАШКИ МЕТРИК ---
 st.markdown("""
     <style>
     [data-baseweb="tab-highlight"] { display: none !important; }
@@ -25,24 +25,23 @@ st.markdown("""
     div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
     div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
 
-    /* СТИЛЬ ВЕРХНЕГО ОКОШКА С МЕТРИКАМИ */
-    .summary-box {
-        padding: 20px 40px;
-        border-radius: 50px; /* Скругление как на скриншоте */
+    /* ТА САМАЯ ВЕРХНЯЯ ПЛАШКА */
+    .summary-bar {
+        padding: 15px 30px;
+        border-radius: 40px; /* Сильное скругление */
+        margin-top: 10px;
         margin-bottom: 30px;
-        text-align: center;
         border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-around;
     }
     
-    .box-median { background-color: rgba(59, 130, 246, 0.15); }
-    .box-worst { background-color: rgba(239, 68, 68, 0.15); }
-    .box-best { background-color: rgba(16, 185, 129, 0.15); }
+    .bar-median { background-color: rgba(59, 130, 246, 0.1); } /* Легкий синий */
+    .bar-worst { background-color: rgba(239, 68, 68, 0.1); }  /* Легкий красный */
+    .bar-best { background-color: rgba(16, 185, 129, 0.1); }   /* Легкий зеленый */
 
-    /* Контейнер для календаря снизу */
-    .calendar-section {
-        padding: 20px;
-        border-radius: 20px;
-    }
+    /* Убираем стандартные рамки Streamlit внутри плашки */
+    [data-testid="column"] { border: none !important; }
     
     .stTable { 
         background-color: rgba(255, 255, 255, 0.05) !important; 
@@ -53,7 +52,7 @@ st.markdown("""
 
 st.title("Симуляция Монте-Карло для трейдеров")
 
-# --- ФУНКЦИИ ---
+# --- ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ) ---
 def calculate_single_mdd(history):
     if not history or len(history) < 2: return 0.0
     h = np.array(history); peaks = np.maximum.accumulate(h)
@@ -70,21 +69,19 @@ def get_consecutive(results):
         max_wins = max(max_wins, cur_wins); max_losses = max(max_losses, cur_losses)
     return max_wins, max_losses
 
-# --- SIDEBAR ---
 with st.sidebar:
     st.header("Настройки")
     mode = st.radio("Режим:", ["Проценты (%)", "Доллары ($)"])
     start_balance = st.number_input("Начальный баланс", value=10000)
-    win_rate = st.number_input("Winning trades %", value=55) #
+    win_rate = st.number_input("Winning trades %", value=55)
     be_rate = st.number_input("Break even trades %", value=5)
-    risk_val = st.number_input(f"Риск ({mode[-2]})", value=100.0 if "$" in mode else 1.0) #
-    reward_val = st.number_input(f"Прибыль ({mode[-2]})", value=200.0 if "$" in mode else 2.0) #
+    risk_val = st.number_input(f"Риск ({mode[-2]})", value=100.0 if "$" in mode else 1.0)
+    reward_val = st.number_input(f"Прибыль ({mode[-2]})", value=200.0 if "$" in mode else 2.0)
     num_sims = st.number_input("Количество симуляций", value=50)
     trades_per_month = st.slider("Сделок в месяц", 1, 50, 20)
     num_months = st.number_input("Месяцев", value=24)
-    variability = st.slider("Вариативность RR (%)", 0, 100, 20) #
+    variability = st.slider("Вариативность RR (%)", 0, 100, 20)
 
-# --- ЛОГИКА СИМУЛЯЦИИ ---
 def run_simulation():
     all_runs = []
     total_trades = int(num_months * trades_per_month)
@@ -128,7 +125,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# --- ДЕТАЛЬНЫЙ АНАЛИЗ С ОКОШКОМ МЕТРИК СВЕРХУ ---
+# --- АНАЛИЗ С ВЕРХНЕЙ ЦВЕТНОЙ ПОЛОСОЙ ---
 st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
 
@@ -139,9 +136,9 @@ def style_table(df):
         return ''
     return df.style.applymap(color_vals)
 
-def render_scenario(data, box_color_class):
-    # 1. ВЕРХНЕЕ ОКОШКО С МЕТРИКАМИ
-    st.markdown(f'<div class="summary-box {box_color_class}">', unsafe_allow_html=True)
+def render_scenario(data, bar_class):
+    # ТА САМАЯ ПОЛОСА С МЕТРИКАМИ
+    st.markdown(f'<div class="summary-bar {bar_class}">', unsafe_allow_html=True)
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric("Initial balance", f"${start_balance:,.0f}")
     c2.metric("Result balance", f"${data['final']:,.0f}")
@@ -152,7 +149,7 @@ def render_scenario(data, box_color_class):
     c7.metric("Win trades %", f"{data['win_pct']:.1f}%")
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 2. НИЖНЯЯ СЕКЦИЯ С КАЛЕНДАРЕМ
+    # КАЛЕНДАРЬ НИЖЕ
     st.write("#### Результаты по месяцам (Календарь)")
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
@@ -171,6 +168,6 @@ def render_scenario(data, box_color_class):
             st.write(f"**Year {2026 + y}**")
             st.table(style_table(df_year))
 
-with tab_med: render_scenario(results[idx_median], "box-median")
-with tab_worst: render_scenario(results[idx_worst], "box-worst")
-with tab_best: render_scenario(results[idx_best], "box-best")
+with tab_med: render_scenario(results[idx_median], "bar-median")
+with tab_worst: render_scenario(results[idx_worst], "bar-worst")
+with tab_best: render_scenario(results[idx_best], "bar-best")
