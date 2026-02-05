@@ -94,5 +94,3 @@ fig_hist = px.histogram(
     template="plotly_dark"
 )
 st.plotly_chart(fig_hist, use_container_width=True)
-
-
