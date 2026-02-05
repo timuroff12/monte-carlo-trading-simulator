@@ -9,7 +9,7 @@ st.title("Симуляция Монте-Карло для трейдеров")
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("⚙️ Параметры")
+    st.header("Параметры")
     mode = st.radio("Режим расчета:", ["Проценты (%)", "Доллары ($)"])
     start_balance = st.number_input("Начальный баланс", value=10000)
     win_rate = st.slider("Win Rate (%)", 0, 100, 50)
@@ -94,4 +94,5 @@ fig_hist = px.histogram(
     template="plotly_dark"
 )
 st.plotly_chart(fig_hist, use_container_width=True)
+
 
