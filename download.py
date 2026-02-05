@@ -82,7 +82,7 @@ with st.sidebar:
     start_balance = st.number_input("Начальный баланс", value=10000, step=1000, format="%d")
     
     col_win, col_be = st.columns(2)
-    win_rate = col_win.number_input("Winning trades %", value=55, format="%d") 
+    win_rate = col_win.number_input("Winning trades %", value=60, format="%d") 
     be_rate = col_be.number_input("Break even trades %", value=5, format="%d")
     
     col_r, col_p = st.columns(2)
@@ -204,3 +204,4 @@ def render_scenario(data):
 with tab_med: render_scenario(results[idx_median])
 with tab_worst: render_scenario(results[idx_worst])
 with tab_best: render_scenario(results[idx_best])
+
