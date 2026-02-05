@@ -5,7 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Professional Monte Carlo Sim", layout="wide")
 
-# --- УЛУЧШЕННЫЙ CSS С ДИНАМИЧЕСКИМИ ФОНАМИ ---
+# --- CSS С ОБНОВЛЕННЫМИ ФОНАМИ ДЛЯ ВСЕЙ НИЖНЕЙ СЕКЦИИ ---
 st.markdown("""
     <style>
     /* Убираем линию под вкладками */
@@ -26,28 +26,37 @@ st.markdown("""
         border: none !important; transition: all 0.2s ease;
     }
 
-    div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
+    div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; } /* Blue */
+    div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; } /* Red */
+    div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; } /* Green */
     
     .stTabs [aria-selected="true"] {
         filter: brightness(1.2); transform: scale(1.02);
         box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
     }
 
-    /* ФОНОВЫЕ КЛАССЫ ДЛЯ СЕКЦИЙ */
-    .section-median { background-color: rgba(59, 130, 246, 0.05); padding: 20px; border-radius: 15px; }
-    .section-worst { background-color: rgba(239, 68, 68, 0.08); padding: 20px; border-radius: 15px; }
-    .section-best { background-color: rgba(16, 185, 129, 0.08); padding: 20px; border-radius: 15px; }
-    
-    /* Исправляем отступы внутри кастомных контейнеров */
-    .stTable { background: transparent !important; }
+    /* ФОНОВЫЕ КЛАССЫ ДЛЯ ВСЕЙ НИЖНЕЙ СЕКЦИИ */
+    .full-bg-median { 
+        background-color: rgba(59, 130, 246, 0.05); 
+        padding: 30px; border-radius: 20px; border: 1px solid rgba(59, 130, 246, 0.1); 
+    }
+    .full-bg-worst { 
+        background-color: rgba(239, 68, 68, 0.07); 
+        padding: 30px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.1); 
+    }
+    .full-bg-best { 
+        background-color: rgba(16, 185, 129, 0.07); 
+        padding: 30px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.1); 
+    }
+
+    /* Чтобы таблицы внутри цветного фона оставались аккуратными */
+    .stTable { background-color: white !important; border-radius: 10px; overflow: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("Симуляция Монте-Карло для трейдеров")
 
-# --- ФУНКЦИИ (без изменений) ---
+# --- ФУНКЦИИ ---
 def calculate_single_mdd(history):
     if not history or len(history) < 2: return 0.0
     h = np.array(history); peaks = np.maximum.accumulate(h)
@@ -69,16 +78,16 @@ with st.sidebar:
     st.header("Настройки")
     mode = st.radio("Режим:", ["Проценты (%)", "Доллары ($)"])
     start_balance = st.number_input("Начальный баланс", value=10000, step=1000)
-    win_rate = st.number_input("Winning trades %", value=55)
-    be_rate = st.number_input("Break even trades %", value=5)
-    risk_val = st.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100)
-    reward_val = st.number_input(f"Прибыль ({mode[-2]})", value=2 if "%" in mode else 200)
+    win_rate = st.number_input("Winning trades %", value=55) #
+    be_rate = st.number_input("Break even trades %", value=5) #
+    risk_val = st.number_input(f"Риск ({mode[-2]})", value=1 if "%" in mode else 100) #
+    reward_val = st.number_input(f"Прибыль ({mode[-2]})", value=2 if "%" in mode else 200) #
     num_sims = st.number_input("Количество симуляций", value=50)
     trades_per_month = st.slider("Сделок в месяц", 1, 50, 20)
     num_months = st.number_input("Месяцев", value=24)
-    variability = st.slider("Вариативность RR (%)", 0, 100, 20)
+    variability = st.slider("Вариативность RR (%)", 0, 100, 20) #
 
-# --- ЛОГИКА СИМУЛЯЦИИ ---
+# --- ЛОГИКА ---
 def run_simulation():
     all_runs = []
     total_trades = int(num_months * trades_per_month)
@@ -125,19 +134,19 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# --- ТАБЛИЦЫ С ЦВЕТНЫМ ФОНОМ ---
-st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True)
-tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"])
+# --- ДЕТАЛЬНЫЙ АНАЛИЗ С ПОЛНОЙ ФОНОВОЙ ЗАЛИВКОЙ ---
+st.write("<h2 style='text-align: center;'>Детальный анализ сценариев</h2>", unsafe_allow_html=True) #
+tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST", "BEST"]) #
 
 def style_table(df):
     def color_vals(val):
-        if isinstance(val, str) and '-' in val: return 'color: #EF4444; font-weight: bold;'
-        if isinstance(val, str) and '+' in val and val != '+0.0%': return 'color: #10B981; font-weight: bold;'
+        if isinstance(val, str) and '-' in val: return 'color: #EF4444; font-weight: bold;' #
+        if isinstance(val, str) and '+' in val and val != '+0.0%': return 'color: #10B981; font-weight: bold;' #
         return ''
     return df.style.applymap(color_vals)
 
 def render_scenario(data, bg_class):
-    # Оборачиваем всё содержимое в div с нужным фоновым классом
+    # Окрашиваем всё содержимое под вкладкой
     st.markdown(f'<div class="{bg_class}">', unsafe_allow_html=True)
     
     # Метрики
@@ -151,11 +160,11 @@ def render_scenario(data, bg_class):
         c6.metric("Max cons. win", data['max_wins'])
         c7.metric("Win trades %", f"{data['win_pct']:.1f}%")
 
-        st.write("#### Результаты по месяцам")
+        st.write("#### Результаты по месяцам") #
         diffs = data['monthly_diffs']
         num_years = int(np.ceil(len(diffs) / 12))
         cols_years = st.columns(min(num_years, 3))
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] #
         
         for y in range(num_years):
             with cols_years[y % 3]:
@@ -163,14 +172,20 @@ def render_scenario(data, bg_class):
                 rows = []
                 for i, val in enumerate(year_data):
                     pct = (val / start_balance) * 100
-                    rows.append({"Month": months[i], "Results %": f"{pct:+.1f}%", "Results $": f"${val:+,.0f}".replace("$-", "-$")})
+                    # Окрашиваем и %, и $
+                    rows.append({
+                        "Month": months[i], 
+                        "Results %": f"{pct:+.1f}%", 
+                        "Results $": f"${val:+,.0f}".replace("$-", "-$")
+                    })
                 df_year = pd.DataFrame(rows)
-                df_year.index = df_year.index + 1
+                df_year.index = df_year.index + 1 # Нумерация с 1
                 st.write(f"**Year {2026 + y}**")
                 st.table(style_table(df_year))
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-with tab_med: render_scenario(results[idx_median], "section-median")
-with tab_worst: render_scenario(results[idx_worst], "section-worst")
-with tab_best: render_scenario(results[idx_best], "section-best")
+# Рендерим вкладки с передачей нужного класса фона
+with tab_med: render_scenario(results[idx_median], "full-bg-median")
+with tab_worst: render_scenario(results[idx_worst], "full-bg-worst")
+with tab_best: render_scenario(results[idx_best], "full-bg-best")
