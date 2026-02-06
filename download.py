@@ -118,76 +118,76 @@ with st.sidebar:
     ruin_threshold = st.number_input(T['ruin_threshold'], value=int(start_balance * 0.1))
 
 # --- ЛОГИКА СИМУЛЯЦИИ ---
-def run_simulation(n_sims, w_rate):
+def run_simulation(n_sims, w_rate, silent=False):
     all_runs = []
     total_trades = int(num_months * trades_per_month)
     ruined_count = 0
 
-    with st.spinner(T['run_sim']):
-        for _ in range(int(n_sims)):
-            balance = float(start_balance)
-            history = [balance]
-            trade_results = []
-            trade_amounts = []
-            monthly_diffs = []
-            current_month_start_bal = balance
-            is_ruined = False
-            
-            for t in range(1, total_trades + 1):
-                if balance <= 0:
-                    balance = 0.0
-                    history.append(balance)
-                    trade_results.append(-1)
-                    trade_amounts.append(0)
-                    continue
-                
-                if balance < ruin_threshold: is_ruined = True
-
-                rn = np.random.random() * 100
-                v_factor = np.random.normal(1, variability / 100)
-                
-                if rn < w_rate:
-                    change = (balance * (reward_val * v_factor / 100)) if "%" in mode else (reward_val * v_factor)
-                    balance += max(0.0, float(change))
-                    trade_results.append(1)
-                    trade_amounts.append(max(0.0, float(change)))
-                elif rn < (w_rate + be_rate):
-                    trade_results.append(0)
-                    trade_amounts.append(0)
-                else:
-                    change = (balance * (risk_val * v_factor / 100)) if "%" in mode else (risk_val * v_factor)
-                    balance -= max(0.0, float(change))
-                    trade_results.append(-1)
-                    trade_amounts.append(-max(0.0, float(change)))
-                
+    # Оборачиваем в spinner только если не тихий режим (для анализа чувствительности)
+    context = st.spinner(T['run_sim']) if not silent else st.empty()
+    
+    for _ in range(int(n_sims)):
+        balance = float(start_balance)
+        history = [balance]
+        trade_results = []
+        trade_amounts = []
+        monthly_diffs = []
+        current_month_start_bal = balance
+        is_ruined = False
+        
+        for t in range(1, total_trades + 1):
+            if balance <= 0:
+                balance = 0.0
                 history.append(balance)
-                if t % trades_per_month == 0:
-                    monthly_diffs.append(balance - current_month_start_bal)
-                    current_month_start_bal = balance
+                trade_results.append(-1)
+                trade_amounts.append(0)
+                continue
             
-            if is_ruined: ruined_count += 1
+            if balance < ruin_threshold: is_ruined = True
+
+            rn = np.random.random() * 100
+            v_factor = np.random.normal(1, variability / 100)
             
-            # Расширенные метрики
-            pos_trades = [a for a in trade_amounts if a > 0]
-            neg_trades = [a for a in trade_amounts if a < 0]
-            sum_pos = sum(pos_trades)
-            sum_neg = abs(sum(neg_trades))
+            if rn < w_rate:
+                change = (balance * (reward_val * v_factor / 100)) if "%" in mode else (reward_val * v_factor)
+                balance += max(0.0, float(change))
+                trade_results.append(1)
+                trade_amounts.append(max(0.0, float(change)))
+            elif rn < (w_rate + be_rate):
+                trade_results.append(0)
+                trade_amounts.append(0)
+            else:
+                change = (balance * (risk_val * v_factor / 100)) if "%" in mode else (risk_val * v_factor)
+                balance -= max(0.0, float(change))
+                trade_results.append(-1)
+                trade_amounts.append(-max(0.0, float(change)))
             
-            returns = np.diff(history) / (np.array(history[:-1]) + 1e-9)
-            m_returns = np.array(monthly_diffs) / start_balance
-            
-            all_runs.append({
-                "history": history, "final": balance, "mdd": calculate_single_mdd(history),
-                "max_wins": get_consecutive(trade_results)[0], "max_losses": get_consecutive(trade_results)[1],
-                "win_pct": (trade_results.count(1)/len(trade_results))*100, "monthly_diffs": monthly_diffs,
-                "profit_factor": sum_pos / sum_neg if sum_neg != 0 else 10.0,
-                "expectancy": np.mean(trade_amounts),
-                "sharpe": (np.mean(m_returns) / np.std(m_returns) * np.sqrt(12)) if np.std(m_returns) > 0 else 0,
-                "sortino": (np.mean(m_returns) / np.std(m_returns[m_returns<0]) * np.sqrt(12)) if len(m_returns[m_returns<0]) > 0 else 10.0,
-                "avg_win": np.mean(pos_trades) if pos_trades else 0,
-                "avg_loss": np.mean(neg_trades) if neg_trades else 0,
-                "recovery_factor": (balance - start_balance) / ( (calculate_single_mdd(history)/100 * start_balance) + 1e-9)
-            })
+            history.append(balance)
+            if t % trades_per_month == 0:
+                monthly_diffs.append(balance - current_month_start_bal)
+                current_month_start_bal = balance
+        
+        if is_ruined: ruined_count += 1
+        
+        pos_trades = [a for a in trade_amounts if a > 0]
+        neg_trades = [a for a in trade_amounts if a < 0]
+        sum_pos = sum(pos_trades)
+        sum_neg = abs(sum(neg_trades))
+        
+        m_returns = np.array(monthly_diffs) / start_balance
+        
+        all_runs.append({
+            "history": history, "final": balance, "mdd": calculate_single_mdd(history),
+            "max_wins": get_consecutive(trade_results)[0], "max_losses": get_consecutive(trade_results)[1],
+            "win_pct": (trade_results.count(1)/len(trade_results))*100, "monthly_diffs": monthly_diffs,
+            "profit_factor": sum_pos / sum_neg if sum_neg != 0 else 10.0,
+            "expectancy": np.mean(trade_amounts),
+            "sharpe": (np.mean(m_returns) / np.std(m_returns) * np.sqrt(12)) if np.std(m_returns) > 0 else 0,
+            "sortino": (np.mean(m_returns) / np.std(m_returns[m_returns<0]) * np.sqrt(12)) if len(m_returns[m_returns<0]) > 0 else 10.0,
+            "avg_win": np.mean(pos_trades) if pos_trades else 0,
+            "avg_loss": np.mean(neg_trades) if neg_trades else 0,
+            "recovery_factor": (balance - start_balance) / ( (calculate_single_mdd(history)/100 * start_balance) + 1e-9)
+        })
             
     return all_runs, (ruined_count / n_sims) * 100
 
@@ -218,26 +218,47 @@ fig_hist = go.Figure(go.Histogram(x=finals, nbinsx=30, marker_color='#3B82F6'))
 fig_hist.update_layout(title=T['hist_title'], template="plotly_dark", height=300)
 st.plotly_chart(fig_hist, use_container_width=True)
 
-# --- АНАЛИЗ ЧУВСТВИТЕЛЬНОСТИ ---
-if st.button(T['sensitivity']):
-    sens_x = list(range(40, 71, 5))
-    sens_y = []
-    for wr in sens_x:
-        s_res, _ = run_simulation(20, wr)
-        sens_y.append(np.mean([r['final'] for r in s_res]))
-    fig_sens = go.Figure(go.Scatter(x=sens_x, y=sens_y, mode='lines+markers', line=dict(color='#10B981')))
-    fig_sens.update_layout(title="Win Rate vs Avg Final Balance", template="plotly_dark", height=300)
-    st.plotly_chart(fig_sens, use_container_width=True)
+# --- АНАЛИЗ ЧУВСТВИТЕЛЬНОСТИ (Автоматически) ---
+sens_x = list(range(40, 71, 5))
+sens_y = []
+for wr in sens_x:
+    s_res, _ = run_simulation(15, wr, silent=True)
+    sens_y.append(np.mean([r['final'] for r in s_res]))
+fig_sens = go.Figure(go.Scatter(x=sens_x, y=sens_y, mode='lines+markers', line=dict(color='#10B981')))
+fig_sens.update_layout(title=f"{T['sensitivity']} (Win Rate vs Avg Final Balance)", template="plotly_dark", height=300)
+st.plotly_chart(fig_sens, use_container_width=True)
 
 st.divider()
 
 # --- ТАБЛИЦЫ И МЕТРИКИ ---
 def style_table(df):
-    return df.style.apply(lambda x: [
-        'color: #10B981' if (isinstance(v, str) and '+' in v and 'Total' not in str(x.name)) or (isinstance(v, str) and 'Year Total' in str(x.name) and '+' in v) 
-        else 'color: #EF4444' if (isinstance(v, str) and '-' in v) 
-        else '' for v in x
-    ], axis=1)
+    def apply_styles(row):
+        styles = [''] * len(row)
+        is_total = row['Month'] == T['year_total']
+        
+        # Получаем числовое значение из Results $ для логики
+        try:
+            val_str = str(row['Results $']).replace('$', '').replace(',', '').replace(' ', '')
+            val = float(val_str)
+        except:
+            val = 0
+            
+        # 5. Фоновая заливка для итоговой строки
+        if is_total:
+            bg_color = 'background-color: rgba(16, 185, 129, 0.15)' if val >= 0 else 'background-color: rgba(239, 68, 68, 0.15)'
+            styles = [bg_color] * len(row)
+        
+        # 3. Цвет текста для процентов и денег
+        if val >= 0:
+            styles[1] += '; color: #10B981' # Results % зелёный
+            styles[2] += '; color: #10B981' # Results $ зелёный
+        else:
+            styles[1] += '; color: #EF4444' # Results % красный
+            styles[2] += '; color: #EF4444' # Results $ красный (по стандарту)
+            
+        return styles
+
+    return df.style.apply(apply_styles, axis=1)
 
 def render_scenario(data):
     with st.container(border=True):
@@ -250,7 +271,15 @@ def render_scenario(data):
         m5, m6, m7, m8 = st.columns(4)
         m5.metric("Expectancy", f"${data['expectancy']:.1f}")
         m6.metric("Recovery Factor", f"{data['recovery_factor']:.2f}")
-        m7.metric("Avg Win/Loss", f"${data['avg_win']:.0f} / ${abs(data['avg_loss']):.0f}")
+        
+        # 2. Avg Win/Loss обычного цвета (Markdown вместо Metric)
+        m7.markdown(f"""
+        <div style="line-height: 1;">
+            <p style="color: gray; font-size: 14px; margin-bottom: 5px;">Avg Win/Loss</p>
+            <p style="font-size: 24px; font-weight: bold; margin: 0;">${data['avg_win']:.0f} / ${abs(data['avg_loss']):.0f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         m8.metric("Max DD", f"-{data['mdd']:.1f}%")
 
     diffs = data['monthly_diffs']
@@ -263,13 +292,18 @@ def render_scenario(data):
         for i, val in enumerate(year_data):
             pct = (val / start_balance) * 100
             year_sum_pct += pct
-            rows.append({"Month": T['months_list'][i], "Results %": f"{pct:+.1f}%", "Results $": f"${val:,.0f}"})
+            # 3. Убираем "+" для положительных процентов
+            pct_str = f"{pct:.1f}%" if pct >= 0 else f"{pct:.1f}%" 
+            rows.append({"Month": T['months_list'][i], "Results %": pct_str, "Results $": f"${val:,.0f}"})
         
         df = pd.DataFrame(rows)
-        df.index = df.index + 1 # Январь начинается с 1
+        # 4. Устанавливаем индекс 1-12 для месяцев
+        df.index = [str(i+1) for i in range(len(year_data))]
         
         # Строка итогов за год
-        total_row = pd.DataFrame([{"Month": T['year_total'], "Results %": f"{year_sum_pct:+.1f}%", "Results $": f"${sum(year_data):,.0f}"}])
+        total_pct_str = f"{year_sum_pct:.1f}%"
+        total_row = pd.DataFrame([{"Month": T['year_total'], "Results %": total_pct_str, "Results $": f"${sum(year_data):,.0f}"}], index=[" "])
+        
         df = pd.concat([df, total_row])
         
         st.write(f"**Year {2026 + y}**")
