@@ -299,17 +299,18 @@ scatter_df = pd.DataFrame({
 # 1. SCATTER PLOT (Риск vs Доходность)
 fig_scatter = go.Figure()
 
-# Точки симуляций
+# Точки симуляций (теперь 100% непрозрачные и яркие)
 fig_scatter.add_trace(go.Scatter(
     x=scatter_df['MDD'],
     y=scatter_df['Return'],
+    name='Simulations',
     mode='markers',
     marker=dict(
         size=9,
         color=scatter_df['Sharpe'],
         colorscale='RdYlGn', 
         showscale=True,
-        opacity=0.6, # Сделал точки прозрачнее, чтобы линию было лучше видно
+        opacity=1.0, # Максимальная яркость
         colorbar=dict(title="Sharpe"),
         line=dict(width=0.5, color='white')
     ),
@@ -317,10 +318,9 @@ fig_scatter.add_trace(go.Scatter(
     hovertemplate="<b>Max DD:</b> %{x:.1f}%<br><b>Return:</b> %{y:.1f}%<br>%{text}<extra></extra>"
 ))
 
-# Линия тренда (регрессия) - ТЕПЕРЬ ЯРКО-ЖЕЛТАЯ
+# Линия тренда — ТЕПЕРЬ СЕРАЯ, ТОНКАЯ И ПРЯМАЯ
 if len(scatter_df) > 1:
     m, b = np.polyfit(scatter_df['MDD'], scatter_df['Return'], 1)
-    # Создаем ровную линию от мин до макс просадки
     line_x = np.array([scatter_df['MDD'].min(), scatter_df['MDD'].max()])
     line_y = m * line_x + b
     
@@ -328,13 +328,13 @@ if len(scatter_df) > 1:
         x=line_x,
         y=line_y,
         mode='lines',
-        name='Trend Line',
-        line=dict(color='#c0c0c0', dash='line', width=1), # Цвет Gold, жирная пунктирная
+        name='Trend',
+        line=dict(color='gray', width=1.5), # Серая, тонкая, сплошная
         showlegend=True
     ))
 
 fig_scatter.update_layout(
-    title="Связь Просадки и Прибыли (Scatter Plot + Trend)",
+    title="Связь Просадки и Прибыли (Scatter Plot)",
     xaxis_title="Maximum Drawdown (%)",
     yaxis_title="Total Return (%)",
     template="plotly_dark",
@@ -344,8 +344,6 @@ fig_scatter.update_layout(
 )
 
 st.plotly_chart(fig_scatter, use_container_width=True)
-
-
 
 # 2. ДВЕ КОЛОНКИ: ГИСТОГРАММА И CDF
 col_h, col_b = st.columns(2)
@@ -387,8 +385,8 @@ with col_b:
 # FAQ
 with st.expander("FAQ / Как читать эти графики?"):
     st.markdown(f"""
-    - **Scatter Plot**: Каждая точка — одна симуляция. **Желтая пунктирная линия** — это тренд. Если она круто идет вверх, стратегия агрессивная. Если она почти горизонтальная — риск не стоит свеч.
-    - **Гистограмма**: Распределение финального капитала.
-    - **CDF**: Вероятность того, что просадка останется в рамках ваших ожиданий.
+    - **Scatter Plot**: Каждая точка — одна симуляция. **Серая линия** — усредненный тренд. Она помогает понять, насколько сильно растет просадка при попытке увеличить доходность.
+    - **Гистограмма**: Показывает самые вероятные значения финального капитала.
+    - **CDF**: Наглядный риск-менеджмент. Шанс того, что ваша стратегия удержится в рамках комфортного риска.
     """)
 
