@@ -5,7 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Professional Monte Carlo Sim", layout="wide")
 
-# --- ЛОКАЛИЗАЦИЯ ---
+# --- LOCALIZATION ---
 languages = {
     "RU": {
         "title": "Симуляция Монте-Карло для трейдеров",
@@ -62,11 +62,11 @@ T = languages[lang_choice]
 with st.sidebar:
     st.header(T['settings'])
     
-    # ПУНКТ 4: Mode $ перекинут направо
-    col_m1, col_m2 = st.columns([1, 1])
-    with col_m2:
-        mode = st.radio(T['mode'], ["%", "$"], horizontal=True)
-        
+    # CHANGE 4: Mode $ moved to the right
+    side_col1, side_col2 = st.columns([1, 1])
+    with side_col2:
+        mode = st.radio(T['mode'], ["%", "$"])
+    
     start_balance = st.number_input(T['start_bal'], value=10000, step=1000)
     
     col_win, col_be = st.columns(2)
@@ -99,4 +99,41 @@ st.markdown(f"""
     .stTabs [data-baseweb="tab-list"] {{ display: flex; justify-content: center; gap: 12px; padding-bottom: 20px; border: none !important; }}
     .stTabs [data-baseweb="tab"] {{ height: 60px; width: 280px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white !important; border: none !important; transition: all 0.2s ease; }}
     div[data-baseweb="tab-list"] button:nth-child(1) {{ background-color: #3B82F6 !important; }}
-    div[data-baseweb="tab-list"] button:nth-child(2) {{ background-color:
+    div[data-baseweb="tab-list"] button:nth-child(2) {{ background-color: #EF4444 !important; }}
+    div[data-baseweb="tab-list"] button:nth-child(3) {{ background-color: #10B981 !important; }}
+    .stTabs [aria-selected="true"] {{ filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }}
+    .year-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px; }}
+    .year-table th, .year-table td {{ border: 1px solid #444; padding: 10px; text-align: center; }}
+    .year-table th {{ background-color: #262730; color: #E0E0E0; font-weight: normal; }}
+    .year-table td {{ font-size: 17px; }}
+    .pos-val {{ color: #10B981; font-weight: bold; }}
+    .neg-val {{ color: #EF4444; font-weight: bold; }}
+    </style>
+""", unsafe_allow_html=True)
+
+st.title(f"{T['title']} by timuroff")
+
+# --- FUNCTIONS ---
+def calculate_single_mdd(history):
+    h = np.array(history)
+    peaks = np.maximum.accumulate(h)
+    drawdowns = (peaks - h) / (peaks + 1e-9)
+    return float(np.max(drawdowns) * 100)
+
+# CHANGE 3: Max DD calculation from Initial Balance
+def calculate_mdd_initial(history, initial_bal):
+    h = np.array(history)
+    drawdowns = (initial_bal - h) / (initial_bal + 1e-9)
+    return float(np.max(drawdowns) * 100)
+
+def get_consecutive(results):
+    max_wins, max_losses = 0, 0
+    cur_wins, cur_losses = 0, 0
+    for r in results:
+        if r == 1: cur_wins += 1; cur_losses = 0
+        elif r == -1: cur_losses += 1; cur_wins = 0
+        else: cur_wins, cur_losses = 0, 0
+        max_wins, max_losses = max(max_wins, cur_wins), max(max_losses, cur_losses)
+    return max_wins, max_losses
+
+def run_simulation(n
