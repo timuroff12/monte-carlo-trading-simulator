@@ -25,7 +25,7 @@ languages = {
         "sensitivity": "Анализ чувствительности",
         "analysis_title": "Детальный анализ сценариев",
         "year_total": "Итого за год:",
-        "risk_of_ruin": "Риск разорения",
+        "risk_of_ruin": "Risk of Ruin", # Оставил как есть, так как в коде было так
         "stats": "Статистика",
         "hist_title": "Распределение финальных балансов",
         "months_list": ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"]
@@ -61,12 +61,7 @@ T = languages[lang_choice]
 # --- SIDEBAR ---
 with st.sidebar:
     st.header(T['settings'])
-    
-    # ИЗМЕНЕНИЕ 4: Mode $ перекинут направо
-    col_m1, col_m2 = st.columns([1, 1])
-    with col_m2:
-        mode = st.radio(T['mode'], ["%", "$"])
-        
+    mode = st.radio(T['mode'], ["%", "$"])
     start_balance = st.number_input(T['start_bal'], value=10000, step=1000)
     
     col_win, col_be = st.columns(2)
@@ -97,11 +92,14 @@ st.markdown(f"""
     div[class*="stMain"] h1 {{ border-bottom: none !important; padding-bottom: 0.5rem !important; }}
     [data-baseweb="tab-highlight"] {{ display: none !important; }}
     .stTabs [data-baseweb="tab-list"] {{ display: flex; justify-content: center; gap: 12px; padding-bottom: 20px; border: none !important; }}
+    /* ПУНКТ 2: Увеличен шрифт табов */
     .stTabs [data-baseweb="tab"] {{ height: 60px; width: 280px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white !important; border: none !important; transition: all 0.2s ease; }}
     div[data-baseweb="tab-list"] button:nth-child(1) {{ background-color: #3B82F6 !important; }}
     div[data-baseweb="tab-list"] button:nth-child(2) {{ background-color: #EF4444 !important; }}
     div[data-baseweb="tab-list"] button:nth-child(3) {{ background-color: #10B981 !important; }}
     .stTabs [aria-selected="true"] {{ filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }}
+    
+    /* ПУНКТ 1: Настройка таблицы (цвет месяцев и размер шрифта) */
     .year-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px; }}
     .year-table th, .year-table td {{ border: 1px solid #444; padding: 10px; text-align: center; }}
     .year-table th {{ background-color: #262730; color: #E0E0E0; font-weight: normal; }}
@@ -120,12 +118,6 @@ def calculate_single_mdd(history):
     drawdowns = (peaks - h) / (peaks + 1e-9)
     return float(np.max(drawdowns) * 100)
 
-# ИЗМЕНЕНИЕ 3: Расчет Max DD от начального баланса
-def calculate_mdd_init(history, start_bal):
-    h = np.array(history)
-    drawdowns = (start_bal - h) / start_bal
-    return float(np.max(drawdowns) * 100)
-
 def get_consecutive(results):
     max_wins, max_losses = 0, 0
     cur_wins, cur_losses = 0, 0
@@ -141,6 +133,7 @@ def run_simulation(n_sims, w_rate, silent=False):
     total_trades = int(num_months * trades_per_month)
     ruined_count = 0
     
+    # ПУНКТ 4: Замена синей линии на спиннер
     if not silent:
         status_text = st.empty()
         status_text.markdown(f"⏳ **{T['run_sim']}**")
@@ -181,9 +174,7 @@ def run_simulation(n_sims, w_rate, silent=False):
         max_c_w, max_c_l = get_consecutive(trade_results)
 
         all_runs.append({
-            "history": balances, "final": balance, 
-            "mdd": calculate_single_mdd(balances),
-            "mdd_init": calculate_mdd_init(balances, start_balance), # Добавляем в результаты
+            "history": balances, "final": balance, "mdd": calculate_single_mdd(balances),
             "max_wins": max_c_w, "max_losses": max_c_l,
             "win_pct": (trade_results.count(1)/len(trade_results))*100 if trade_results else 0,
             "monthly_diffs": m_diffs, "profit_factor": sum(pos_t) / abs(sum(neg_t)) if neg_t else 10.0,
@@ -194,7 +185,7 @@ def run_simulation(n_sims, w_rate, silent=False):
         })
     
     if not silent:
-        status_text.empty()
+        status_text.empty() # Убираем текст загрузки
         
     return all_runs, (ruined_count / n_sims) * 100
 
@@ -224,32 +215,34 @@ fig.update_layout(template="plotly_dark", height=450, margin=dict(l=20, r=20, t=
 st.plotly_chart(fig, use_container_width=True)
 
 # ИЗМЕНЕНИЕ 2: Перцентили сразу после графика
-p_col1, p_col2 = st.columns(2)
-p_col1.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
-p_col2.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
+perc_1, perc_2 = st.columns(2)
+perc_1.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
+perc_2.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
 
 # --- ФУНКЦИЯ ОТОБРАЖЕНИЯ СЦЕНАРИЯ ---
 def render_scenario(data, label, color):
+    # ПУНКТ 3: Уменьшен размер шрифта в баннере (был h3, стал h4 с фикс. размером)
     st.markdown(f"""
         <div style="background-color:{color}; padding:8px; border-radius:5px; margin-bottom:20px; text-align:center;">
             <h4 style="color:white; margin:0; font-size: 20px; letter-spacing: 1px;">{label.upper()} SCENARIO</h4>
         </div>
     """, unsafe_allow_html=True)
 
-    # ИЗМЕНЕНИЕ 1: Risk of Ruin внутри статистики сценария
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric(T['risk_of_ruin'], f"{r_ruin_pct:.1f}%")
-    m2.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
-    m3.metric("Profit Factor", f"{data['profit_factor']:.2f}")
-    m4.metric("Sharpe Ratio", f"{data['sharpe']:.2f}")
+    # ИЗМЕНЕНИЕ 1: Risk of Ruin перенесен сюда и считается от сценария (data)
+    is_ruined = np.min(data['history']) <= ruin_threshold
+    ruin_val = "100%" if is_ruined else "0%"
+
+    r1_0, r1_1, r1_2, r1_3, r1_4 = st.columns(5)
+    r1_0.metric(T['risk_of_ruin'], ruin_val) # <--- Добавлено
+    r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
+    r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}")
+    r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}")
+    r1_4.metric("CAGR", f"{data['cagr']:.1f}%")
     
-    st.write("---")
-    
-    # ИЗМЕНЕНИЕ 3: Добавлен Max DD (Init Balance)
     r2_1, r2_2, r2_3, r2_4 = st.columns(4)
     r2_1.metric("Expectancy", f"${data['expectancy']:.1f}")
-    r2_2.metric("Max DD %", f"-{data['mdd']:.1f}%")
-    r2_3.metric("Max DD (Init Balance)", f"-{data['mdd_init']:.1f}%")
+    r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}")
+    r2_3.metric("Max DD %", f"-{data['mdd']:.1f}%")
     r2_4.metric("Actual WinRate", f"{data['win_pct']:.1f}%")
 
     st.write("---")
@@ -308,5 +301,4 @@ with st.expander("FAQ / Что это такое?"):
     ### Справка по инструменту:
     - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
     - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
-    - **Max DD (Init Balance)**: Максимальное падение баланса относительно стартового капитала.
     """)
