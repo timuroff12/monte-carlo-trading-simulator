@@ -294,17 +294,41 @@ with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
 with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
 with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
 
-# Распределение
-st.divider()
-col_h, col_b = st.columns(2)
-with col_h:
-    fig_h = go.Figure(go.Histogram(x=finals, nbinsx=30, marker_color='#3B82F6'))
-    fig_h.update_layout(title=T['hist_title'], template="plotly_dark", height=300)
-    st.plotly_chart(fig_h, use_container_width=True)
 with col_b:
-    fig_m = go.Figure(go.Histogram(x=[r['mdd'] for r in results], nbinsx=30, marker_color='#EF4444'))
-    fig_m.update_layout(title="MDD Distribution", template="plotly_dark", height=300)
-    st.plotly_chart(fig_m, use_container_width=True)
+    # Подготовка данных для CDF
+    mdds_sorted = np.sort([r['mdd'] for r in results])
+    cdf_y = np.arange(1, len(mdds_sorted) + 1) / len(mdds_sorted)
+    
+    fig_cdf = go.Figure()
+
+    # Основная линия CDF
+    fig_cdf.add_trace(go.Scatter(
+        x=mdds_sorted, 
+        y=cdf_y * 100, 
+        mode='lines',
+        name='Вероятность',
+        line=dict(color='#EF4444', width=3),
+        fill='tozeroy', # Заливка под линией для наглядности
+        hovertemplate='Просадка: %{x:.1f}%<br>Вероятность: %{y:.1f}%'
+    ))
+
+    # Настройка осей и стиля
+    fig_cdf.update_layout(
+        title="Вероятность НЕ превысить просадку (CDF)",
+        template="plotly_dark",
+        height=300,
+        xaxis_title="Max Drawdown (%)",
+        yaxis_title="Вероятность (%)",
+        margin=dict(l=20, r=20, t=40, b=20),
+        showlegend=False,
+        yaxis=dict(range=[0, 105], dtick=25) # От 0 до 100%
+    )
+    
+    # Добавим сетку для удобства чтения
+    fig_cdf.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)')
+    fig_cdf.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)')
+
+    st.plotly_chart(fig_cdf, use_container_width=True)
 
 with st.expander("FAQ / Что это такое?"):
     st.markdown("""
@@ -312,4 +336,5 @@ with st.expander("FAQ / Что это такое?"):
     - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
     - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
     """)
+
 
