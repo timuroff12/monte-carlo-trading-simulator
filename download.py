@@ -87,22 +87,25 @@ with st.sidebar:
     sizing_type = st.selectbox("Position Sizing", ["Fixed Risk", "Kelly"])
 
 # --- CSS ---
-st.markdown("""
+st.markdown(f"""
     <style>
-    div[class*="stMain"] h1 { border-bottom: none !important; padding-bottom: 0.5rem !important; }
-    [data-baseweb="tab-highlight"] { display: none !important; }
-    .stTabs [data-baseweb="tab-list"] { display: flex; justify-content: center; gap: 12px; padding-bottom: 20px; border: none !important; }
-    .stTabs [data-baseweb="tab"] { height: 60px; width: 250px; border-radius: 8px; font-weight: bold; font-size: 18px; color: white !important; border: none !important; transition: all 0.2s ease; }
-    div[data-baseweb="tab-list"] button:nth-child(1) { background-color: #3B82F6 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
-    div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
-    .stTabs [aria-selected="true"] { filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }
-    /* Таблица статистики по годам */
-    .year-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
-    .year-table th, .year-table td { border: 1px solid #444; padding: 8px; text-align: center; }
-    .year-table th { background-color: #262730; }
-    .pos-val { color: #10B981; font-weight: bold; }
-    .neg-val { color: #EF4444; font-weight: bold; }
+    div[class*="stMain"] h1 {{ border-bottom: none !important; padding-bottom: 0.5rem !important; }}
+    [data-baseweb="tab-highlight"] {{ display: none !important; }}
+    .stTabs [data-baseweb="tab-list"] {{ display: flex; justify-content: center; gap: 12px; padding-bottom: 20px; border: none !important; }}
+    /* ПУНКТ 2: Увеличен шрифт табов */
+    .stTabs [data-baseweb="tab"] {{ height: 60px; width: 280px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white !important; border: none !important; transition: all 0.2s ease; }}
+    div[data-baseweb="tab-list"] button:nth-child(1) {{ background-color: #3B82F6 !important; }}
+    div[data-baseweb="tab-list"] button:nth-child(2) {{ background-color: #EF4444 !important; }}
+    div[data-baseweb="tab-list"] button:nth-child(3) {{ background-color: #10B981 !important; }}
+    .stTabs [aria-selected="true"] {{ filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }}
+    
+    /* ПУНКТ 1: Настройка таблицы (цвет месяцев и размер шрифта) */
+    .year-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px; }}
+    .year-table th, .year-table td {{ border: 1px solid #444; padding: 10px; text-align: center; }}
+    .year-table th {{ background-color: #262730; color: #E0E0E0; font-weight: normal; }}
+    .year-table td {{ font-size: 17px; }}
+    .pos-val {{ color: #10B981; font-weight: bold; }}
+    .neg-val {{ color: #EF4444; font-weight: bold; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -129,10 +132,13 @@ def run_simulation(n_sims, w_rate, silent=False):
     all_runs = []
     total_trades = int(num_months * trades_per_month)
     ruined_count = 0
-    progress_bar = st.progress(0) if not silent else None
+    
+    # ПУНКТ 4: Замена синей линии на спиннер
+    if not silent:
+        status_text = st.empty()
+        status_text.markdown(f"⏳ **{T['run_sim']}**")
 
     for i in range(int(n_sims)):
-        if not silent: progress_bar.progress((i + 1) / n_sims)
         balance = float(start_balance)
         balances, trade_results, trade_amounts = [balance], [], []
         is_ruined = False
@@ -177,6 +183,10 @@ def run_simulation(n_sims, w_rate, silent=False):
             "recovery_factor": (balance - start_balance) / ((calculate_single_mdd(balances)/100 * start_balance) + 1e-9),
             "cagr": ((balance/start_balance)**(1/(num_months/12)) - 1) * 100 if balance > 0 else -100
         })
+    
+    if not silent:
+        status_text.empty() # Убираем текст загрузки
+        
     return all_runs, (ruined_count / n_sims) * 100
 
 results, r_ruin_pct = run_simulation(num_sims, win_rate)
@@ -184,7 +194,7 @@ finals = [r["final"] for r in results]
 idx_best, idx_worst = int(np.argmax(finals)), int(np.argmin(finals))
 idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
-# --- ГРАФИКИ (ПУНКТ 4: Конечная прибыль в легенде) ---
+# --- ГРАФИКИ ---
 fig = go.Figure()
 for i, r in enumerate(results[:100]):
     if i not in [idx_best, idx_worst, idx_median]:
@@ -206,21 +216,19 @@ st.plotly_chart(fig, use_container_width=True)
 
 # --- ФУНКЦИЯ ОТОБРАЖЕНИЯ СЦЕНАРИЯ ---
 def render_scenario(data, label, color):
-    # ПУНКТ 2: Цветное обозначение типа симуляции
+    # ПУНКТ 3: Уменьшен размер шрифта в баннере (был h3, стал h4 с фикс. размером)
     st.markdown(f"""
-        <div style="background-color:{color}; padding:10px; border-radius:5px; margin-bottom:20px; text-align:center;">
-            <h3 style="color:white; margin:0;">{label.upper()} SCENARIO</h3>
+        <div style="background-color:{color}; padding:8px; border-radius:5px; margin-bottom:20px; text-align:center;">
+            <h4 style="color:white; margin:0; font-size: 20px; letter-spacing: 1px;">{label.upper()} SCENARIO</h4>
         </div>
     """, unsafe_allow_html=True)
 
-    # ПУНКТ 3: Перенос общих метрик внутрь (Risk of Ruin и Percentiles)
     m1, m2, m3 = st.columns(3)
     m1.metric(T['risk_of_ruin'], f"{r_ruin_pct:.1f}%")
     m2.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
     m3.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
     st.write("---")
 
-    # Основные метрики сценария
     r1_1, r1_2, r1_3, r1_4 = st.columns(4)
     r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
     r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}")
@@ -235,7 +243,6 @@ def render_scenario(data, label, color):
 
     st.write("---")
     
-    # ПУНКТ 1: Статистика по годам компактно в столбцах и клетках
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
     
@@ -244,7 +251,6 @@ def render_scenario(data, label, color):
         st.write(f"#### Year {year_val}")
         year_data = diffs[y*12 : (y+1)*12]
         
-        # Создаем HTML таблицу для компактности
         html_table = f'<table class="year-table"><tr>'
         for m_name in T['months_list']:
             html_table += f'<th>{m_name}</th>'
@@ -257,14 +263,13 @@ def render_scenario(data, label, color):
                 year_sum += val
                 pct = (val / start_balance) * 100
                 style = "pos-val" if val >= 0 else "neg-val"
-                html_table += f'<td><div class="{style}">{pct:+.1f}%</div><div style="font-size:10px">${val:,.0f}</div></td>'
+                html_table += f'<td><div class="{style}">{pct:+.1f}%</div><div style="font-size:11px; opacity:0.8;">${val:,.0f}</div></td>'
             else:
                 html_table += '<td>-</td>'
         
-        # Итоговая колонка
         total_pct = (year_sum / start_balance) * 100
         t_style = "pos-val" if year_sum >= 0 else "neg-val"
-        html_table += f'<td style="background-color:#333"><div class="{t_style}">{total_pct:+.1f}%</div><div style="font-size:10px">${year_sum:,.0f}</div></td>'
+        html_table += f'<td style="background-color:#333"><div class="{t_style}">{total_pct:+.1f}%</div><div style="font-size:11px; opacity:0.8;">${year_sum:,.0f}</div></td>'
         html_table += '</tr></table>'
         
         st.markdown(html_table, unsafe_allow_html=True)
@@ -275,7 +280,7 @@ with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
 with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
 with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
 
-# Распределение (Гистограммы)
+# Распределение
 st.divider()
 col_h, col_b = st.columns(2)
 with col_h:
@@ -287,11 +292,9 @@ with col_b:
     fig_m.update_layout(title="MDD Distribution", template="plotly_dark", height=300)
     st.plotly_chart(fig_m, use_container_width=True)
 
-# FAQ
 with st.expander("FAQ / Что это такое?"):
     st.markdown("""
     ### Справка по инструменту:
-    - **Монте-Карло симуляция**: Метод математического моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
+    - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
     - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
-    - **Percentile**: 5% худших результатов означают, что только в 5% случаев ваш итог будет ниже этой цифры.
     """)
