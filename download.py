@@ -329,7 +329,7 @@ if len(scatter_df) > 1:
         y=line_y,
         mode='lines',
         name='Trend Line',
-        line=dict(color='#FFD700', dash='dash', width=4), # Цвет Gold, жирная пунктирная
+        line=dict(color='#c0c0c0', dash='line', width=1), # Цвет Gold, жирная пунктирная
         showlegend=True
     ))
 
@@ -391,3 +391,4 @@ with st.expander("FAQ / Как читать эти графики?"):
     - **Гистограмма**: Распределение финального капитала.
     - **CDF**: Вероятность того, что просадка останется в рамках ваших ожиданий.
     """)
+
