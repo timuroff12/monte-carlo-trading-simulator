@@ -307,25 +307,30 @@ fig_scatter.add_trace(go.Scatter(
     marker=dict(
         size=9,
         color=scatter_df['Sharpe'],
-        colorscale='RdYlGn', # От красного (плохо) к зеленому (хорошо)
+        colorscale='RdYlGn', 
         showscale=True,
+        opacity=0.6, # Сделал точки прозрачнее, чтобы линию было лучше видно
         colorbar=dict(title="Sharpe"),
-        line=dict(width=1, color='rgba(255, 255, 255, 0.3)')
+        line=dict(width=0.5, color='white')
     ),
     text=[f"Sharpe: {s:.2f}" for s in scatter_df['Sharpe']],
     hovertemplate="<b>Max DD:</b> %{x:.1f}%<br><b>Return:</b> %{y:.1f}%<br>%{text}<extra></extra>"
 ))
 
-# Линия тренда (регрессия)
+# Линия тренда (регрессия) - ТЕПЕРЬ ЯРКО-ЖЕЛТАЯ
 if len(scatter_df) > 1:
     m, b = np.polyfit(scatter_df['MDD'], scatter_df['Return'], 1)
+    # Создаем ровную линию от мин до макс просадки
+    line_x = np.array([scatter_df['MDD'].min(), scatter_df['MDD'].max()])
+    line_y = m * line_x + b
+    
     fig_scatter.add_trace(go.Scatter(
-        x=scatter_df['MDD'],
-        y=m*scatter_df['MDD'] + b,
+        x=line_x,
+        y=line_y,
         mode='lines',
-        name='Trend',
-        line=dict(color='white', dash='dash', width=2),
-        showlegend=False
+        name='Trend Line',
+        line=dict(color='#FFD700', dash='dash', width=4), # Цвет Gold, жирная пунктирная
+        showlegend=True
     ))
 
 fig_scatter.update_layout(
@@ -334,7 +339,8 @@ fig_scatter.update_layout(
     yaxis_title="Total Return (%)",
     template="plotly_dark",
     height=500,
-    margin=dict(l=20, r=20, t=50, b=20)
+    margin=dict(l=20, r=20, t=50, b=20),
+    legend=dict(x=0.01, y=0.99)
 )
 
 st.plotly_chart(fig_scatter, use_container_width=True)
@@ -381,9 +387,7 @@ with col_b:
 # FAQ
 with st.expander("FAQ / Как читать эти графики?"):
     st.markdown(f"""
-    - **Scatter Plot**: Каждая точка — это одна полная симуляция. Если линия тренда идет круто вверх, значит, за бóльшую прибыль вы платите бóльшим риском. Если точки кучно собраны в левом верхнем углу — это идеальная стратегия.
-    - **Гистограмма**: Показывает, какой финальный капитал наиболее вероятен.
-    - **CDF**: Ваш "страховой полис". Показывает шанс того, что реальная просадка не выйдет за ваши границы.
+    - **Scatter Plot**: Каждая точка — одна симуляция. **Желтая пунктирная линия** — это тренд. Если она круто идет вверх, стратегия агрессивная. Если она почти горизонтальная — риск не стоит свеч.
+    - **Гистограмма**: Распределение финального капитала.
+    - **CDF**: Вероятность того, что просадка останется в рамках ваших ожиданий.
     """)
-
-
