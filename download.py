@@ -97,6 +97,12 @@ st.markdown("""
     div[data-baseweb="tab-list"] button:nth-child(2) { background-color: #EF4444 !important; }
     div[data-baseweb="tab-list"] button:nth-child(3) { background-color: #10B981 !important; }
     .stTabs [aria-selected="true"] { filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }
+    /* Таблица статистики по годам */
+    .year-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+    .year-table th, .year-table td { border: 1px solid #444; padding: 8px; text-align: center; }
+    .year-table th { background-color: #262730; }
+    .pos-val { color: #10B981; font-weight: bold; }
+    .neg-val { color: #EF4444; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -178,23 +184,99 @@ finals = [r["final"] for r in results]
 idx_best, idx_worst = int(np.argmax(finals)), int(np.argmin(finals))
 idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
-# --- ГРАФИКИ ---
+# --- ГРАФИКИ (ПУНКТ 4: Конечная прибыль в легенде) ---
 fig = go.Figure()
 for i, r in enumerate(results[:100]):
     if i not in [idx_best, idx_worst, idx_median]:
         fig.add_trace(go.Scatter(y=r["history"], mode='lines', line=dict(width=1, color="gray"), opacity=0.1, showlegend=False))
-fig.add_trace(go.Scatter(y=results[idx_median]["history"], name="MEDIAN", line=dict(color="#3B82F6", width=2)))
-fig.add_trace(go.Scatter(y=results[idx_worst]["history"], name="WORST", line=dict(color="#EF4444", width=2)))
-fig.add_trace(go.Scatter(y=results[idx_best]["history"], name="BEST", line=dict(color="#10B981", width=2)))
-fig.update_layout(template="plotly_dark", height=400, margin=dict(l=20, r=20, t=20, b=20))
+
+fig.add_trace(go.Scatter(y=results[idx_median]["history"], 
+                         name=f"MEDIAN: ${results[idx_median]['final']:,.0f}", 
+                         line=dict(color="#3B82F6", width=3)))
+fig.add_trace(go.Scatter(y=results[idx_worst]["history"], 
+                         name=f"WORST: ${results[idx_worst]['final']:,.0f}", 
+                         line=dict(color="#EF4444", width=3)))
+fig.add_trace(go.Scatter(y=results[idx_best]["history"], 
+                         name=f"BEST: ${results[idx_best]['final']:,.0f}", 
+                         line=dict(color="#10B981", width=3)))
+
+fig.update_layout(template="plotly_dark", height=450, margin=dict(l=20, r=20, t=20, b=20), 
+                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
 st.plotly_chart(fig, use_container_width=True)
 
-# Метрики
-c1, c2, c3 = st.columns(3)
-c1.metric(T['risk_of_ruin'], f"{r_ruin_pct:.1f}%")
-c2.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
-c3.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
+# --- ФУНКЦИЯ ОТОБРАЖЕНИЯ СЦЕНАРИЯ ---
+def render_scenario(data, label, color):
+    # ПУНКТ 2: Цветное обозначение типа симуляции
+    st.markdown(f"""
+        <div style="background-color:{color}; padding:10px; border-radius:5px; margin-bottom:20px; text-align:center;">
+            <h3 style="color:white; margin:0;">{label.upper()} SCENARIO</h3>
+        </div>
+    """, unsafe_allow_html=True)
 
+    # ПУНКТ 3: Перенос общих метрик внутрь (Risk of Ruin и Percentiles)
+    m1, m2, m3 = st.columns(3)
+    m1.metric(T['risk_of_ruin'], f"{r_ruin_pct:.1f}%")
+    m2.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
+    m3.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
+    st.write("---")
+
+    # Основные метрики сценария
+    r1_1, r1_2, r1_3, r1_4 = st.columns(4)
+    r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
+    r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}")
+    r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}")
+    r1_4.metric("CAGR", f"{data['cagr']:.1f}%")
+    
+    r2_1, r2_2, r2_3, r2_4 = st.columns(4)
+    r2_1.metric("Expectancy", f"${data['expectancy']:.1f}")
+    r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}")
+    r2_3.metric("Max DD %", f"-{data['mdd']:.1f}%")
+    r2_4.metric("Actual WinRate", f"{data['win_pct']:.1f}%")
+
+    st.write("---")
+    
+    # ПУНКТ 1: Статистика по годам компактно в столбцах и клетках
+    diffs = data['monthly_diffs']
+    num_years = int(np.ceil(len(diffs) / 12))
+    
+    for y in range(num_years):
+        year_val = 2026 + y
+        st.write(f"#### Year {year_val}")
+        year_data = diffs[y*12 : (y+1)*12]
+        
+        # Создаем HTML таблицу для компактности
+        html_table = f'<table class="year-table"><tr>'
+        for m_name in T['months_list']:
+            html_table += f'<th>{m_name}</th>'
+        html_table += f'<th>{T["year_total"]}</th></tr><tr>'
+        
+        year_sum = 0
+        for i in range(12):
+            if i < len(year_data):
+                val = year_data[i]
+                year_sum += val
+                pct = (val / start_balance) * 100
+                style = "pos-val" if val >= 0 else "neg-val"
+                html_table += f'<td><div class="{style}">{pct:+.1f}%</div><div style="font-size:10px">${val:,.0f}</div></td>'
+            else:
+                html_table += '<td>-</td>'
+        
+        # Итоговая колонка
+        total_pct = (year_sum / start_balance) * 100
+        t_style = "pos-val" if year_sum >= 0 else "neg-val"
+        html_table += f'<td style="background-color:#333"><div class="{t_style}">{total_pct:+.1f}%</div><div style="font-size:10px">${year_sum:,.0f}</div></td>'
+        html_table += '</tr></table>'
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+
+# --- ТАБЫ ---
+tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST CASE", "BEST CASE"])
+with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
+with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
+with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
+
+# Распределение (Гистограммы)
+st.divider()
 col_h, col_b = st.columns(2)
 with col_h:
     fig_h = go.Figure(go.Histogram(x=finals, nbinsx=30, marker_color='#3B82F6'))
@@ -205,72 +287,11 @@ with col_b:
     fig_m.update_layout(title="MDD Distribution", template="plotly_dark", height=300)
     st.plotly_chart(fig_m, use_container_width=True)
 
-st.divider()
-
-# --- СЦЕНАРИИ ---
-def style_table(df):
-    def apply_styles(row):
-        is_total = row['Month'] == T['year_total']
-        try: val = float(str(row['Results $']).replace('$', '').replace(',', ''))
-        except: val = 0
-        color = '#10B981' if val >= 0 else '#EF4444'
-        bg = f'background-color: rgba({"16, 185, 129" if val >= 0 else "239, 68, 68"}, 0.15)' if is_total else ''
-        return [bg, f'{bg}; color: {color}', f'{bg}; color: {color}']
-    return df.style.apply(apply_styles, axis=1)
-
-def render_scenario(data):
-    # Ряд 1 (4 метрики)
-    r1_1, r1_2, r1_3, r1_4 = st.columns(4)
-    r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
-    r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}")
-    r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}")
-    r1_4.metric("CAGR", f"{data['cagr']:.1f}%")
-    
-    # Ряд 2 (4 метрики - СИММЕТРИЯ)
-    r2_1, r2_2, r2_3, r2_4 = st.columns(4)
-    r2_1.metric("Expectancy", f"${data['expectancy']:.1f}")
-    r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}")
-    r2_3.metric("Max DD %", f"-{data['mdd']:.1f}%")
-    r2_4.metric("Actual WinRate", f"{data['win_pct']:.1f}%")
-
-    # Ряд 3 (Доп. статистика)
-    r3_1, r3_2, r3_3, r3_4 = st.columns(4)
-    r3_1.metric("Max Consecutive Wins", f"{data['max_wins']}")
-    r3_2.metric("Max Consecutive Losses", f"{data['max_losses']}")
-
-    st.write("---")
-    diffs = data['monthly_diffs']
-    num_years = int(np.ceil(len(diffs) / 12))
-    for y in range(num_years):
-        st.write(f"#### Year {2026 + y}")
-        year_data = diffs[y*12 : (y+1)*12]
-        
-        # КАЛЕНДАРЬ ПО 3 КОЛОНКИ
-        cols = st.columns(3)
-        for i, val in enumerate(year_data):
-            pct = (val / start_balance) * 100
-            with cols[i % 3]:
-                st.caption(T['months_list'][i])
-                st.markdown(f"<span style='color:{'#10B981' if val>=0 else '#EF4444'}'>**{pct:+.1f}%** (${val:,.0f})</span>", unsafe_allow_html=True)
-        
-        st.markdown(f"**{T['year_total']} {(sum(year_data)/start_balance)*100:+.1f}% (${sum(year_data):,.0f})**")
-        st.write("")
-
-tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST CASE", "BEST CASE"])
-with tab_med: render_scenario(results[idx_median])
-with tab_worst: render_scenario(results[idx_worst])
-with tab_best: render_scenario(results[idx_best])
-
-# --- FAQ ВНИЗУ САЙТА ---
-st.divider()
+# FAQ
 with st.expander("FAQ / Что это такое?"):
     st.markdown("""
     ### Справка по инструменту:
-    - **Монте-Карло симуляция**: Метод математического моделирования, который использует случайные числа для создания тысяч возможных вариантов будущего вашего торгового счета.
-    - **Win Rate**: Процент выигрышных сделок.
-    - **Risk/Reward**: Сколько вы зарабатываете на 1 доллар риска.
-    - **Вариативность RR**: Добавляет реализма, меняя вашу прибыль/убыток в каждой сделке на случайную величину.
-    - **Риск разорения**: Вероятность того, что ваш баланс упадет ниже критической отметки (Порог разорения).
-    - **Коэффициент Шарпа**: Оценка риска доходности. Чем выше, тем стабильнее рост.
-    - **Recovery Factor**: Отношение прибыли к максимальной просадке. Показывает, насколько быстро стратегия восстанавливается.
+    - **Монте-Карло симуляция**: Метод математического моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
+    - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
+    - **Percentile**: 5% худших результатов означают, что только в 5% случаев ваш итог будет ниже этой цифры.
     """)
