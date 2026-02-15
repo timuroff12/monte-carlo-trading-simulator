@@ -191,7 +191,7 @@ finals = [r["final"] for r in results]
 idx_best, idx_worst = int(np.argmax(finals)), int(np.argmin(finals))
 idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
-# --- ГРАФИКИ (ОСНОВНОЙ) ---
+# --- ГРАФИКИ ---
 fig = go.Figure()
 for i, r in enumerate(results[:100]):
     if i not in [idx_best, idx_worst, idx_median]:
@@ -227,15 +227,15 @@ def render_scenario(data, label, color):
     ruin_val = "100%" if is_ruined else "0%"
 
     hints = {
-        "ruin": "Risk of Ruin - Вероятность того, что баланс счета упадет ниже установленного порога разорения.",
-        "return": "Return % - Общая доходность стратегии в процентах относительно начального баланса.",
-        "pf": "Profit Factor - Отношение общей прибыли к общему убытку. Значение выше 1.0 означает прибыльную стратегию.",
-        "sharpe": "Коэффициент Шарпа - Показатель эффективности инвестиционного портфеля, который вычисляется как отношение средней прибыли к риску (волатильности).",
-        "cagr": "CAGR (Compound Annual Growth Rate) - Совокупный среднегодовой темп роста.",
-        "expectancy": "Математическое ожидание - Средняя прибыль или убыток на одну сделку.",
-        "rf": "Recovery Factor - Отношение чистой прибыли к максимальной просадке.",
-        "mdd": "Max Drawdown - Максимальное падение баланса от пиковой точки до минимума в процентах.",
-        "winrate": "Actual WinRate - Реальный процент прибыльных сделок."
+        "ruin": "Risk of Ruin - Вероятность падения баланса ниже порога разорения.",
+        "return": "Return % - Общая доходность относительно начального баланса.",
+        "pf": "Profit Factor - Отношение прибыли к убытку.",
+        "sharpe": "Коэффициент Шарпа - Эффективность стратегии относительно риска.",
+        "cagr": "CAGR - Среднегодовой темп роста.",
+        "expectancy": "Мат. ожидание - Средняя прибыль на сделку.",
+        "rf": "Recovery Factor - Чистая прибыль к максимальной просадке.",
+        "mdd": "Max Drawdown - Максимальное падение в %.",
+        "winrate": "Actual WinRate - Реальный процент побед."
     }
 
     r1_0, r1_1, r1_2, r1_3, r1_4 = st.columns(5)
@@ -279,13 +279,13 @@ def render_scenario(data, label, color):
         html_table += '</tr></table>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-# --- ТАБЫ СЦЕНАРИЕВ ---
+# --- ТАБЫ ---
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST CASE", "BEST CASE"])
 with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
 with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
 with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
 
-# --- СТАТИСТИКА И РАСПРЕДЕЛЕНИЯ (Гистограмма + CDF) ---
+# --- НОВЫЙ БЛОК: ГИСТОГРАММА И CDF ---
 st.divider()
 col_h, col_b = st.columns(2)
 
@@ -301,16 +301,18 @@ with col_h:
     st.plotly_chart(fig_h, use_container_width=True)
 
 with col_b:
-    # Кумулятивная функция распределения (CDF) для MDD
+    # Подготовка данных для CDF
     mdds_sorted = np.sort([r['mdd'] for r in results])
     cdf_y = np.arange(1, len(mdds_sorted) + 1) / len(mdds_sorted)
     
     fig_cdf = go.Figure()
 
+    # Линия CDF
     fig_cdf.add_trace(go.Scatter(
         x=mdds_sorted, 
         y=cdf_y * 100, 
         mode='lines',
+        name='Вероятность',
         line=dict(color='#EF4444', width=3),
         fill='tozeroy',
         hovertemplate='Просадка до: %{x:.1f}%<br>Вероятность: %{y:.1f}%'
@@ -323,8 +325,8 @@ with col_b:
         xaxis_title="Max Drawdown (%)",
         yaxis_title="Вероятность (%)",
         margin=dict(l=20, r=20, t=40, b=20),
-        yaxis=dict(range=[0, 105], dtick=25),
-        showlegend=False
+        showlegend=False,
+        yaxis=dict(range=[0, 105], dtick=25)
     )
     
     fig_cdf.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)')
@@ -335,7 +337,7 @@ with col_b:
 with st.expander("FAQ / Что это такое?"):
     st.markdown(f"""
     ### Справка по инструменту:
-    - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
-    - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога ({ruin_threshold}$).
-    - **CDF график (справа)**: Показывает вероятность того, что ваша просадка будет меньше или равна выбранному значению.
+    - **Монте-Карло симуляция**: Метод моделирования будущего на основе тысяч случайных сценариев.
+    - **Risk of Ruin**: Вероятность того, что ваш баланс упадет ниже {ruin_threshold}$.
+    - **CDF (справа)**: График вероятности просадок. Показывает шанс того, что ваша просадка будет ниже конкретного значения.
     """)
