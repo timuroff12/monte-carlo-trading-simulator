@@ -285,63 +285,105 @@ with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
 with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
 with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
 
-# --- НОВЫЙ БЛОК: СТАТИСТИЧЕСКИЙ АНАЛИЗ ---
+# --- АНАЛИТИЧЕСКИЙ БЛОК: SCATTER PLOT, ГИСТОГРАММА И CDF ---
 st.divider()
-st.subheader("Визуализация рисков и распределения")
+st.subheader("Комплексный анализ рисков")
 
-# Готовим данные для Scatter Plot
-scatter_data = pd.DataFrame({
-    'Final Return %': [((r['final'] - start_balance) / start_balance) * 100 for r in results],
-    'Max Drawdown %': [r['mdd'] for r in results],
+# Подготовка данных
+scatter_df = pd.DataFrame({
+    'MDD': [r['mdd'] for r in results],
+    'Return': [((r['final'] - start_balance) / start_balance) * 100 for r in results],
     'Sharpe': [r['sharpe'] for r in results]
 })
 
-# 1. Точечная диаграмма: Риск vs Доходность
-fig_scatter = go.Figure(data=go.Scatter(
-    x=scatter_data['Max Drawdown %'],
-    y=scatter_data['Final Return %'],
+# 1. SCATTER PLOT (Риск vs Доходность)
+fig_scatter = go.Figure()
+
+# Точки симуляций
+fig_scatter.add_trace(go.Scatter(
+    x=scatter_df['MDD'],
+    y=scatter_df['Return'],
     mode='markers',
     marker=dict(
-        size=8,
-        color=scatter_data['Sharpe'], # Цвет зависит от коэффициента Шарпа
-        colorscale='Viridis',
+        size=9,
+        color=scatter_df['Sharpe'],
+        colorscale='RdYlGn', # От красного (плохо) к зеленому (хорошо)
         showscale=True,
-        colorbar=dict(title="Sharpe")
+        colorbar=dict(title="Sharpe"),
+        line=dict(width=1, color='rgba(255, 255, 255, 0.3)')
     ),
-    text=[f"Sharpe: {s:.2f}" for s in scatter_data['Sharpe']],
-    hovertemplate="<b>Просадка:</b> %{x:.1f}%<br><b>Доходность:</b> %{y:.1f}%<br>%{text}<extra></extra>"
+    text=[f"Sharpe: {s:.2f}" for s in scatter_df['Sharpe']],
+    hovertemplate="<b>Max DD:</b> %{x:.1f}%<br><b>Return:</b> %{y:.1f}%<br>%{text}<extra></extra>"
 ))
 
+# Линия тренда (регрессия)
+if len(scatter_df) > 1:
+    m, b = np.polyfit(scatter_df['MDD'], scatter_df['Return'], 1)
+    fig_scatter.add_trace(go.Scatter(
+        x=scatter_df['MDD'],
+        y=m*scatter_df['MDD'] + b,
+        mode='lines',
+        name='Trend',
+        line=dict(color='white', dash='dash', width=2),
+        showlegend=False
+    ))
+
 fig_scatter.update_layout(
-    title="Scatter Plot: Риск (DD) vs Доходность (Return)",
+    title="Связь Просадки и Прибыли (Scatter Plot + Trend)",
     xaxis_title="Maximum Drawdown (%)",
     yaxis_title="Total Return (%)",
     template="plotly_dark",
-    height=500
+    height=500,
+    margin=dict(l=20, r=20, t=50, b=20)
 )
 
 st.plotly_chart(fig_scatter, use_container_width=True)
 
-# 2. Гистограмма и CDF в две колонки
+
+
+# 2. ДВЕ КОЛОНКИ: ГИСТОГРАММА И CDF
 col_h, col_b = st.columns(2)
 
 with col_h:
     fig_h = go.Figure(go.Histogram(x=finals, nbinsx=30, marker_color='#3B82F6'))
-    fig_h.update_layout(title=T['hist_title'], template="plotly_dark", height=350)
+    fig_h.update_layout(
+        title=T['hist_title'], 
+        template="plotly_dark", 
+        height=350,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
     st.plotly_chart(fig_h, use_container_width=True)
 
 with col_b:
-    mdds_sorted = np.sort(scatter_data['Max Drawdown %'])
+    mdds_sorted = np.sort(scatter_df['MDD'])
     cdf_y = np.arange(1, len(mdds_sorted) + 1) / len(mdds_sorted)
-    fig_cdf = go.Figure(go.Scatter(x=mdds_sorted, y=cdf_y * 100, fill='tozeroy', line=dict(color='#EF4444')))
-    fig_cdf.update_layout(title="Вероятность НЕ превысить просадку (CDF)", template="plotly_dark", height=350)
+    
+    fig_cdf = go.Figure(go.Scatter(
+        x=mdds_sorted, 
+        y=cdf_y * 100, 
+        mode='lines',
+        line=dict(color='#EF4444', width=3),
+        fill='tozeroy',
+        hovertemplate='Просадка до: %{x:.1f}%<br>Вероятность: %{y:.1f}%'
+    ))
+
+    fig_cdf.update_layout(
+        title="Вероятность НЕ превысить просадку (CDF)",
+        template="plotly_dark",
+        height=350,
+        xaxis_title="Max Drawdown (%)",
+        yaxis_title="Вероятность (%)",
+        yaxis=dict(range=[0, 105], dtick=25),
+        showlegend=False
+    )
     st.plotly_chart(fig_cdf, use_container_width=True)
 
-with st.expander("FAQ / Что это такое?"):
+# FAQ
+with st.expander("FAQ / Как читать эти графики?"):
     st.markdown(f"""
-    ### Справка по инструменту:
-    - **Монте-Карло симуляция**: Метод моделирования будущего на основе тысяч случайных сценариев.
-    - **Risk of Ruin**: Вероятность того, что ваш баланс упадет ниже {ruin_threshold}$.
-    - **CDF (справа)**: График вероятности просадок. Показывает шанс того, что ваша просадка будет ниже конкретного значения.
+    - **Scatter Plot**: Каждая точка — это одна полная симуляция. Если линия тренда идет круто вверх, значит, за бóльшую прибыль вы платите бóльшим риском. Если точки кучно собраны в левом верхнем углу — это идеальная стратегия.
+    - **Гистограмма**: Показывает, какой финальный капитал наиболее вероятен.
+    - **CDF**: Ваш "страховой полис". Показывает шанс того, что реальная просадка не выйдет за ваши границы.
     """)
+
 
