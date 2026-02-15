@@ -25,7 +25,7 @@ languages = {
         "sensitivity": "Анализ чувствительности",
         "analysis_title": "Детальный анализ сценариев",
         "year_total": "Итого за год:",
-        "risk_of_ruin": "Risk of Ruin", # Оставил как есть, так как в коде было так
+        "risk_of_ruin": "Risk of Ruin",
         "stats": "Статистика",
         "hist_title": "Распределение финальных балансов",
         "months_list": ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"]
@@ -92,14 +92,12 @@ st.markdown(f"""
     div[class*="stMain"] h1 {{ border-bottom: none !important; padding-bottom: 0.5rem !important; }}
     [data-baseweb="tab-highlight"] {{ display: none !important; }}
     .stTabs [data-baseweb="tab-list"] {{ display: flex; justify-content: center; gap: 12px; padding-bottom: 20px; border: none !important; }}
-    /* ПУНКТ 2: Увеличен шрифт табов */
     .stTabs [data-baseweb="tab"] {{ height: 60px; width: 280px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white !important; border: none !important; transition: all 0.2s ease; }}
     div[data-baseweb="tab-list"] button:nth-child(1) {{ background-color: #3B82F6 !important; }}
     div[data-baseweb="tab-list"] button:nth-child(2) {{ background-color: #EF4444 !important; }}
     div[data-baseweb="tab-list"] button:nth-child(3) {{ background-color: #10B981 !important; }}
     .stTabs [aria-selected="true"] {{ filter: brightness(1.2); transform: scale(1.02); box-shadow: 0px 5px 15px rgba(0,0,0,0.3); }}
     
-    /* ПУНКТ 1: Настройка таблицы (цвет месяцев и размер шрифта) */
     .year-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 16px; }}
     .year-table th, .year-table td {{ border: 1px solid #444; padding: 10px; text-align: center; }}
     .year-table th {{ background-color: #262730; color: #E0E0E0; font-weight: normal; }}
@@ -133,7 +131,6 @@ def run_simulation(n_sims, w_rate, silent=False):
     total_trades = int(num_months * trades_per_month)
     ruined_count = 0
     
-    # ПУНКТ 4: Замена синей линии на спиннер
     if not silent:
         status_text = st.empty()
         status_text.markdown(f"⏳ **{T['run_sim']}**")
@@ -185,7 +182,7 @@ def run_simulation(n_sims, w_rate, silent=False):
         })
     
     if not silent:
-        status_text.empty() # Убираем текст загрузки
+        status_text.empty()
         
     return all_runs, (ruined_count / n_sims) * 100
 
@@ -194,7 +191,7 @@ finals = [r["final"] for r in results]
 idx_best, idx_worst = int(np.argmax(finals)), int(np.argmin(finals))
 idx_median = int((np.abs(np.array(finals) - np.median(finals))).argmin())
 
-# --- ГРАФИКИ ---
+# --- ГРАФИКИ (ОСНОВНОЙ) ---
 fig = go.Figure()
 for i, r in enumerate(results[:100]):
     if i not in [idx_best, idx_worst, idx_median]:
@@ -214,7 +211,6 @@ fig.update_layout(template="plotly_dark", height=450, margin=dict(l=20, r=20, t=
                   legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
 st.plotly_chart(fig, use_container_width=True)
 
-# ИЗМЕНЕНИЕ 2: Перцентили сразу после графика
 perc_1, perc_2 = st.columns(2)
 perc_1.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
 perc_2.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
@@ -227,24 +223,21 @@ def render_scenario(data, label, color):
         </div>
     """, unsafe_allow_html=True)
 
-    # Логика Risk of Ruin для конкретного сценария
     is_ruined = np.min(data['history']) <= ruin_threshold
     ruin_val = "100%" if is_ruined else "0%"
 
-    # Описания для подсказок
     hints = {
         "ruin": "Risk of Ruin - Вероятность того, что баланс счета упадет ниже установленного порога разорения.",
         "return": "Return % - Общая доходность стратегии в процентах относительно начального баланса.",
         "pf": "Profit Factor - Отношение общей прибыли к общему убытку. Значение выше 1.0 означает прибыльную стратегию.",
         "sharpe": "Коэффициент Шарпа - Показатель эффективности инвестиционного портфеля, который вычисляется как отношение средней прибыли к риску (волатильности).",
-        "cagr": "CAGR (Compound Annual Growth Rate) - Совокупный среднегодовой темп роста. Показатель того, сколько бы вы зарабатывали ежегодно, если бы капитал рос с постоянной скоростью и прибыль реинвестировалась.",
-        "expectancy": "Математическое ожидание - Средняя прибыль или убыток на одну сделку в денежном эквиваленте.",
-        "rf": "Recovery Factor - Отношение чистой прибыли к максимальной просадке. Показывает, насколько быстро стратегия восстанавливается после убытков.",
+        "cagr": "CAGR (Compound Annual Growth Rate) - Совокупный среднегодовой темп роста.",
+        "expectancy": "Математическое ожидание - Средняя прибыль или убыток на одну сделку.",
+        "rf": "Recovery Factor - Отношение чистой прибыли к максимальной просадке.",
         "mdd": "Max Drawdown - Максимальное падение баланса от пиковой точки до минимума в процентах.",
-        "winrate": "Actual WinRate - Реальный процент прибыльных сделок, зафиксированный в данной симуляции."
+        "winrate": "Actual WinRate - Реальный процент прибыльных сделок."
     }
 
-    # Первая строка метрик
     r1_0, r1_1, r1_2, r1_3, r1_4 = st.columns(5)
     r1_0.metric(T['risk_of_ruin'], ruin_val, help=hints["ruin"])
     r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%", help=hints["return"])
@@ -252,7 +245,6 @@ def render_scenario(data, label, color):
     r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}", help=hints["sharpe"])
     r1_4.metric("CAGR", f"{data['cagr']:.1f}%", help=hints["cagr"])
     
-    # Вторая строка метрик
     r2_1, r2_2, r2_3, r2_4 = st.columns(4)
     r2_1.metric("Expectancy", f"${data['expectancy']:.1f}", help=hints["expectancy"])
     r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}", help=hints["rf"])
@@ -261,7 +253,6 @@ def render_scenario(data, label, color):
 
     st.write("---")
     
-    # ... (далее код отрисовки таблиц без изменений)
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
     for y in range(num_years):
@@ -288,53 +279,63 @@ def render_scenario(data, label, color):
         html_table += '</tr></table>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-# --- ТАБЫ ---
+# --- ТАБЫ СЦЕНАРИЕВ ---
 tab_med, tab_worst, tab_best = st.tabs(["MOST POSSIBLE", "WORST CASE", "BEST CASE"])
 with tab_med: render_scenario(results[idx_median], "Median", "#3B82F6")
 with tab_worst: render_scenario(results[idx_worst], "Worst", "#EF4444")
 with tab_best: render_scenario(results[idx_best], "Best", "#10B981")
 
+# --- СТАТИСТИКА И РАСПРЕДЕЛЕНИЯ (Гистограмма + CDF) ---
+st.divider()
+col_h, col_b = st.columns(2)
+
+with col_h:
+    # Гистограмма финальных балансов
+    fig_h = go.Figure(go.Histogram(x=finals, nbinsx=30, marker_color='#3B82F6'))
+    fig_h.update_layout(
+        title=T['hist_title'], 
+        template="plotly_dark", 
+        height=350,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+    st.plotly_chart(fig_h, use_container_width=True)
+
 with col_b:
-    # Подготовка данных для CDF
+    # Кумулятивная функция распределения (CDF) для MDD
     mdds_sorted = np.sort([r['mdd'] for r in results])
     cdf_y = np.arange(1, len(mdds_sorted) + 1) / len(mdds_sorted)
     
     fig_cdf = go.Figure()
 
-    # Основная линия CDF
     fig_cdf.add_trace(go.Scatter(
         x=mdds_sorted, 
         y=cdf_y * 100, 
         mode='lines',
-        name='Вероятность',
         line=dict(color='#EF4444', width=3),
-        fill='tozeroy', # Заливка под линией для наглядности
-        hovertemplate='Просадка: %{x:.1f}%<br>Вероятность: %{y:.1f}%'
+        fill='tozeroy',
+        hovertemplate='Просадка до: %{x:.1f}%<br>Вероятность: %{y:.1f}%'
     ))
 
-    # Настройка осей и стиля
     fig_cdf.update_layout(
         title="Вероятность НЕ превысить просадку (CDF)",
         template="plotly_dark",
-        height=300,
+        height=350,
         xaxis_title="Max Drawdown (%)",
         yaxis_title="Вероятность (%)",
         margin=dict(l=20, r=20, t=40, b=20),
-        showlegend=False,
-        yaxis=dict(range=[0, 105], dtick=25) # От 0 до 100%
+        yaxis=dict(range=[0, 105], dtick=25),
+        showlegend=False
     )
     
-    # Добавим сетку для удобства чтения
     fig_cdf.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)')
     fig_cdf.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)')
 
     st.plotly_chart(fig_cdf, use_container_width=True)
 
 with st.expander("FAQ / Что это такое?"):
-    st.markdown("""
+    st.markdown(f"""
     ### Справка по инструменту:
     - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
-    - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
+    - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога ({ruin_threshold}$).
+    - **CDF график (справа)**: Показывает вероятность того, что ваша просадка будет меньше или равна выбранному значению.
     """)
-
-
