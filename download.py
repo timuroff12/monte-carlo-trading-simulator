@@ -219,47 +219,59 @@ perc_1, perc_2 = st.columns(2)
 perc_1.metric("5% Percentile (Worst)", f"${np.percentile(finals, 5):,.0f}")
 perc_2.metric("95% Percentile (Best)", f"${np.percentile(finals, 95):,.0f}")
 
-# --- ФУНКЦИЯ ОТОБРАЖЕНИЯ СЦЕНАРИЯ ---
+# --- ФУНКЦИЯ ОТОБРАЖЕНИЯ СЦЕНАРИЯ С ПОДСКАЗКАМИ ---
 def render_scenario(data, label, color):
-    # ПУНКТ 3: Уменьшен размер шрифта в баннере (был h3, стал h4 с фикс. размером)
     st.markdown(f"""
         <div style="background-color:{color}; padding:8px; border-radius:5px; margin-bottom:20px; text-align:center;">
             <h4 style="color:white; margin:0; font-size: 20px; letter-spacing: 1px;">{label.upper()} SCENARIO</h4>
         </div>
     """, unsafe_allow_html=True)
 
-    # ИЗМЕНЕНИЕ 1: Risk of Ruin перенесен сюда и считается от сценария (data)
+    # Логика Risk of Ruin для конкретного сценария
     is_ruined = np.min(data['history']) <= ruin_threshold
     ruin_val = "100%" if is_ruined else "0%"
 
+    # Описания для подсказок
+    hints = {
+        "ruin": "Risk of Ruin - Вероятность того, что баланс счета упадет ниже установленного порога разорения.",
+        "return": "Return % - Общая доходность стратегии в процентах относительно начального баланса.",
+        "pf": "Profit Factor - Отношение общей прибыли к общему убытку. Значение выше 1.0 означает прибыльную стратегию.",
+        "sharpe": "Коэффициент Шарпа - Показатель эффективности инвестиционного портфеля, который вычисляется как отношение средней прибыли к риску (волатильности).",
+        "cagr": "CAGR (Compound Annual Growth Rate) - Совокупный среднегодовой темп роста. Показатель того, сколько бы вы зарабатывали ежегодно, если бы капитал рос с постоянной скоростью и прибыль реинвестировалась.",
+        "expectancy": "Математическое ожидание - Средняя прибыль или убыток на одну сделку в денежном эквиваленте.",
+        "rf": "Recovery Factor - Отношение чистой прибыли к максимальной просадке. Показывает, насколько быстро стратегия восстанавливается после убытков.",
+        "mdd": "Max Drawdown - Максимальное падение баланса от пиковой точки до минимума в процентах.",
+        "winrate": "Actual WinRate - Реальный процент прибыльных сделок, зафиксированный в данной симуляции."
+    }
+
+    # Первая строка метрик
     r1_0, r1_1, r1_2, r1_3, r1_4 = st.columns(5)
-    r1_0.metric(T['risk_of_ruin'], ruin_val) # <--- Добавлено
-    r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%")
-    r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}")
-    r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}")
-    r1_4.metric("CAGR", f"{data['cagr']:.1f}%")
+    r1_0.metric(T['risk_of_ruin'], ruin_val, help=hints["ruin"])
+    r1_1.metric("Return %", f"{((data['final']-start_balance)/start_balance)*100:.1f}%", help=hints["return"])
+    r1_2.metric("Profit Factor", f"{data['profit_factor']:.2f}", help=hints["pf"])
+    r1_3.metric("Sharpe Ratio", f"{data['sharpe']:.2f}", help=hints["sharpe"])
+    r1_4.metric("CAGR", f"{data['cagr']:.1f}%", help=hints["cagr"])
     
+    # Вторая строка метрик
     r2_1, r2_2, r2_3, r2_4 = st.columns(4)
-    r2_1.metric("Expectancy", f"${data['expectancy']:.1f}")
-    r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}")
-    r2_3.metric("Max DD %", f"-{data['mdd']:.1f}%")
-    r2_4.metric("Actual WinRate", f"{data['win_pct']:.1f}%")
+    r2_1.metric("Expectancy", f"${data['expectancy']:.1f}", help=hints["expectancy"])
+    r2_2.metric("Recovery Factor", f"{data['recovery_factor']:.2f}", help=hints["rf"])
+    r2_3.metric("Max DD %", f"-{data['mdd']:.1f}%", help=hints["mdd"])
+    r2_4.metric("Actual WinRate", f"{data['win_pct']:.1f}%", help=hints["winrate"])
 
     st.write("---")
     
+    # ... (далее код отрисовки таблиц без изменений)
     diffs = data['monthly_diffs']
     num_years = int(np.ceil(len(diffs) / 12))
-    
     for y in range(num_years):
         year_val = 2026 + y
         st.write(f"#### Year {year_val}")
         year_data = diffs[y*12 : (y+1)*12]
-        
         html_table = f'<table class="year-table"><tr>'
         for m_name in T['months_list']:
             html_table += f'<th>{m_name}</th>'
         html_table += f'<th>{T["year_total"]}</th></tr><tr>'
-        
         year_sum = 0
         for i in range(12):
             if i < len(year_data):
@@ -270,12 +282,10 @@ def render_scenario(data, label, color):
                 html_table += f'<td><div class="{style}">{pct:+.1f}%</div><div style="font-size:11px; opacity:0.8;">${val:,.0f}</div></td>'
             else:
                 html_table += '<td>-</td>'
-        
         total_pct = (year_sum / start_balance) * 100
         t_style = "pos-val" if year_sum >= 0 else "neg-val"
         html_table += f'<td style="background-color:#333"><div class="{t_style}">{total_pct:+.1f}%</div><div style="font-size:11px; opacity:0.8;">${year_sum:,.0f}</div></td>'
         html_table += '</tr></table>'
-        
         st.markdown(html_table, unsafe_allow_html=True)
 
 # --- ТАБЫ ---
@@ -302,3 +312,4 @@ with st.expander("FAQ / Что это такое?"):
     - **Монте-Карло симуляция**: Метод моделирования, использующий случайные числа для создания тысяч вариантов будущего счета.
     - **Risk of Ruin**: Вероятность падения баланса ниже заданного порога.
     """)
+
